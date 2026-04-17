@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "18825890802",
+    "project_id": "lorry-app-user",
+    "storage_bucket": "lorry-app-user.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:18825890802:android:ae108ae6b4e2727322396b",
+        "android_client_info": {
+          "package_name": "com.example.porter_clone_user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzdkVVYocSPo4tu1Vm951tdCHmgMnto2o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
