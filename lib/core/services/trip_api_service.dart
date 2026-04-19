@@ -24,31 +24,32 @@ class TripApiService {
     'Accept': 'application/json',
     'Content-Type': 'application/x-www-form-urlencoded',
   };
-  
-Future<Map<String, dynamic>> getTripChoices() async {
-  final url = Uri.parse(
-    "https://lorry.workwista.com/api/users/trip/get/choices/",
-  );
 
-  final response = await http.get(
-    url,
-    headers: const {
-      'Accept': 'application/json',
-    },
-  ).timeout(_timeout);
+  Future<Map<String, dynamic>> getTripChoices() async {
+    final url = Uri.parse(
+      'https://lorry.workwista.com/api/users/trip/get/choices/',
+    );
 
-  if (response.statusCode != 200) {
-    throw TripApiException("Failed to load trip choices");
+    final response = await http.get(
+      url,
+      headers: const {
+        'Accept': 'application/json',
+      },
+    ).timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw TripApiException('Failed to load trip choices');
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    throw TripApiException('Invalid API format');
   }
 
-  final decoded = jsonDecode(response.body);
-
-  if (decoded is Map<String, dynamic>) {
-    return decoded;
-  }
-
-  throw TripApiException("Invalid API format");
-}
   Future<Map<String, dynamic>> postTrip({
     required Map<String, String> payload,
     String? accessToken,
@@ -72,9 +73,7 @@ Future<Map<String, dynamic>> getTripChoices() async {
     debugPrint('POST $_postTripUri response: ${response.body}');
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw TripApiException(
-        'Failed to post trip. (${response.statusCode})',
-      );
+      throw TripApiException(_buildRequestError(response));
     }
 
     return _tryDecodePayload(response.body);
@@ -96,6 +95,58 @@ Future<Map<String, dynamic>> getTripChoices() async {
         'POST $_postTripUri stops pending: ${jsonEncode(stopsPending)}',
       );
     }
+  }
+
+  String _buildRequestError(http.Response response) {
+    final decoded = _tryDecodePayload(response.body);
+    final message =
+        _extractMessage(decoded['error']) ??
+        _extractMessage(decoded['errors']) ??
+        _extractMessage(decoded['detail']) ??
+        _extractMessage(decoded['message']);
+
+    if (message != null && message.trim().isNotEmpty) {
+      return message;
+    }
+
+    return 'Failed to post trip. (${response.statusCode})';
+  }
+
+  String? _extractMessage(dynamic source, [String? field]) {
+    if (source is String) {
+      final text = source.trim();
+      if (text.isEmpty) {
+        return null;
+      }
+      return field == null ? text : '$field: $text';
+    }
+
+    if (source is List) {
+      final parts = source
+          .map((entry) => _extractMessage(entry, field))
+          .whereType<String>()
+          .toList();
+      if (parts.isEmpty) {
+        return null;
+      }
+      return parts.join('\n');
+    }
+
+    if (source is Map) {
+      final parts = <String>[];
+      source.forEach((key, value) {
+        final message = _extractMessage(value, key.toString());
+        if (message != null) {
+          parts.add(message);
+        }
+      });
+      if (parts.isEmpty) {
+        return null;
+      }
+      return parts.join('\n');
+    }
+
+    return null;
   }
 
   Map<String, dynamic> _tryDecodePayload(String source) {
