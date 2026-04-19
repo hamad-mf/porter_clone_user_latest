@@ -363,22 +363,31 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 
 class _WelcomeHeader extends StatelessWidget {
   const _WelcomeHeader();
-
   @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Welcome Back',
-          style: TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-          ),
+Widget build(BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Welcome Back',
+        style: TextStyle(
+          color: Color(0xFF888888),
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
         ),
-        SizedBox(height: 2),
-        Text(
+      ),
+      const SizedBox(height: 2),
+
+      InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ProfilePage(),
+            ),
+          );
+        },
+        child: const Text(
           'Davidson Edgar',
           style: TextStyle(
             color: Color(0xFF111827),
@@ -387,9 +396,37 @@ class _WelcomeHeader extends StatelessWidget {
             height: 1.1,
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   return const Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         'Welcome Back',
+  //         style: TextStyle(
+  //           color: Color(0xFF888888),
+  //           fontSize: 13,
+  //           fontWeight: FontWeight.w400,
+  //         ),
+  //       ),
+  //       SizedBox(height: 2),
+  //       Text(
+  //         'Davidson Edgar',
+  //         style: TextStyle(
+  //           color: Color(0xFF111827),
+  //           fontSize: 22,
+  //           fontWeight: FontWeight.w700,
+  //           height: 1.1,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 }
 
 class _CreateTripCard extends StatelessWidget {
