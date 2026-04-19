@@ -31,18 +31,19 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   void _startDelay() {
-    _timer = Timer(const Duration(seconds: 2), () async {
-      final hasAccessToken = await AuthLocalStorage.hasAccessToken();
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              hasAccessToken ? const DashboardPage() : const SignInPage(),
-        ),
-      );
-    });
-  }
+  _timer = Timer(const Duration(seconds: 2), () async {
+    final hasAccessToken = await AuthLocalStorage.hasAccessToken();
 
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) =>
+            hasAccessToken ? const DashboardPage() : const SignInPage(),
+      ),
+    );
+  });
+}
   @override
   void dispose() {
     _timer?.cancel();

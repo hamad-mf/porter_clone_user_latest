@@ -570,7 +570,7 @@ class _TripDetailsTab extends StatelessWidget {
           children: [
             Expanded(
               child: _LabeledField(
-                label: 'Starting time',
+                label: 'Pickup time',
                 child: _TimeField(
                   value: startTime,
                   onChanged: onStartTimeChanged,
