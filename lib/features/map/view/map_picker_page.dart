@@ -10,7 +10,7 @@ class PickedLocation {
 
   final LatLng position;
   final String label;
-}
+}''
 
 class MapPickerPage extends StatefulWidget {
   const MapPickerPage({
@@ -76,20 +76,35 @@ class _MapPickerPageState extends State<MapPickerPage> {
     super.dispose();
   }
 
-  String _labelFor(LatLng position) {
-    final lat = position.latitude.toStringAsFixed(5);
-    final lng = position.longitude.toStringAsFixed(5);
-    return 'Lat $lat, Lng $lng';
+  // String _labelFor(LatLng position) {
+  //   final lat = position.latitude.toStringAsFixed(5);
+  //   final lng = position.longitude.toStringAsFixed(5);
+  //   return 'Lat $lat, Lng $lng';
+  // }
+String _labelFor(LatLng position) {
+  if (_resolvedAddress != null &&
+      _resolvedAddress!.trim().isNotEmpty &&
+      _resolvedAddress != 'Unknown location') {
+    return _resolvedAddress!;
   }
-
+  return 'Fetching location...';
+}
   Future<void> _reverseGeocode(LatLng position) async {
-    try {
-      final details = await _placesApiService.reverseGeocode(position);
-      if (!mounted) return;
-      setState(() => _resolvedAddress = details);
-    } catch (_) {}
-  }
+  try {
+    final details = await _placesApiService.reverseGeocode(position);
 
+    if (!mounted) return;
+
+    setState(() {
+      _resolvedAddress = (details != null && details.trim().isNotEmpty)
+          ? details
+          : 'Unknown location';
+    });
+  } catch (_) {
+    if (!mounted) return;
+    setState(() => _resolvedAddress = 'Unknown location');
+  }
+}
   void _onSearchChanged() {
     if (_suppressSearch) {
       return;
@@ -278,6 +293,45 @@ class _MapPickerPageState extends State<MapPickerPage> {
     );
   }
 
+// Future<void> _confirm() async {
+//   setState(() => _isFetchingDetails = true);
+
+//   try {
+//     // ensure latest address is fetched
+//     final address = await _placesApiService.reverseGeocode(_selected);
+
+//     if (!mounted) return;
+
+//     final String label = (address != null && address.trim().isNotEmpty)
+//         ? address.trim()
+//         : (_resolvedAddress?.trim().isNotEmpty == true
+//             ? _resolvedAddress!.trim()
+//             : 'Selected location');
+
+//     Navigator.of(context).pop(
+//       PickedLocation(
+//         position: _selected,
+//         label: label,
+//       ),
+//     );
+//   } catch (e) {
+//     if (!mounted) return;
+
+//     Navigator.of(context).pop(
+//       PickedLocation(
+//         position: _selected,
+//         label: _resolvedAddress?.trim().isNotEmpty == true
+//             ? _resolvedAddress!.trim()
+//             : 'Selected location',
+//       ),
+//     );
+//   } finally {
+//     if (mounted) {
+//       setState(() => _isFetchingDetails = false);
+//     }
+//   }
+// }
+
   void _confirm() {
     final label = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
@@ -316,10 +370,11 @@ class _MapPickerPageState extends State<MapPickerPage> {
               _searchController.clear();
               _suppressSearch = false;
               setState(() {
-                _selected = newPos;
-                _resolvedAddress = null;
-              });
-              _reverseGeocode(newPos);
+  _selected = newPos;
+  _resolvedAddress = null;
+});
+
+await _reverseGeocode(newPos);
             },
             onMapCreated: (controller) => _controller = controller,
             myLocationEnabled: _hasLocationPermission,

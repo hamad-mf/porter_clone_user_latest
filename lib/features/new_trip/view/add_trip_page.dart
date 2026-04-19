@@ -35,6 +35,12 @@ class _AddTripPageState extends State<AddTripPage> {
   final TextEditingController _pickupController = TextEditingController();
   final TextEditingController _dropController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
+  
+
+ // API dropdown values (REAL DATA)
+  List<String> vehicleSizes = [];
+  List<String> bodyTypes = [];
+  List<String> loadTypes = [];
 
   String? _vehicleSize;
   String? _bodyType;
@@ -61,6 +67,37 @@ class _AddTripPageState extends State<AddTripPage> {
   static const _titles = ['Trip Details', 'Owner Details'];
   static const _progress = [0.50, 1.0];
 
+  @override
+void initState() {
+  super.initState();
+  _fetchChoices();
+}
+Future<void> _fetchChoices() async {
+  try {
+    final response = await _tripApiService.getTripChoices();
+
+    setState(() {
+      vehicleSizes = (response['load_size'] as List)
+          .map((e) => e['label'].toString())
+          .toList();
+
+      bodyTypes = (response['body_type'] as List)
+          .map((e) => e['label'].toString())
+          .toList();
+
+      loadTypes = (response['load_type'] as List)
+          .map((e) => e['label'].toString())
+          .toList();
+    });
+
+    print("vehicleSizes: $vehicleSizes");
+    print("bodyTypes: $bodyTypes");
+    print("loadTypes: $loadTypes");
+
+  } catch (e) {
+    print("API Error: $e");
+  }
+}
   @override
   void dispose() {
     _pickupController.dispose();
@@ -390,6 +427,11 @@ class _AddTripPageState extends State<AddTripPage> {
                       endTime: _endTime,
                       onEndTimeChanged: (value) =>
                           setState(() => _endTime = value),
+                           // ✅ ADD THESE (IMPORTANT FIX)
+  loadTypes: loadTypes,
+  vehicleSizes: vehicleSizes,
+  bodyTypes: bodyTypes,
+                          
                     ),
                     _OwnerDetailsTab(
                       onBack: _back,
@@ -471,6 +513,10 @@ class _TripDetailsTab extends StatelessWidget {
     required this.onStartTimeChanged,
     required this.endTime,
     required this.onEndTimeChanged,
+    required this.loadTypes,
+    required this.vehicleSizes,
+        required this.bodyTypes,
+
   });
   final VoidCallback onNext;
   final TextEditingController pickupController;
@@ -492,6 +538,10 @@ class _TripDetailsTab extends StatelessWidget {
   final ValueChanged<TimeOfDay> onStartTimeChanged;
   final TimeOfDay? endTime;
   final ValueChanged<TimeOfDay> onEndTimeChanged;
+  final List<String> loadTypes;
+  final List<String> vehicleSizes;
+    final List<String> bodyTypes;
+
 
   @override
   Widget build(BuildContext context) {
@@ -543,7 +593,8 @@ class _TripDetailsTab extends StatelessWidget {
                 label: 'Size (Length)',
                 child: _CustomDropdown(
                   hint: '7-8 ft',
-                  options: const ['7-8 ft', '9-12 ft', '13-17 ft'],
+                  options: vehicleSizes,
+                  // options: const ['7-8 ft', '9-12 ft', '13-17 ft'],
                   value: vehicleSize,
                   onChanged: onVehicleSizeChanged,
                 ),
@@ -555,7 +606,8 @@ class _TripDetailsTab extends StatelessWidget {
                 label: 'Body Type',
                 child: _CustomDropdown(
                   hint: 'Common',
-                  options: const ['Common', 'Container', 'Open Body'],
+                 options: bodyTypes,
+                  // options: const ['Common', 'Container', 'Open Body'],
                   value: bodyType,
                   onChanged: onBodyTypeChanged,
                 ),
@@ -599,12 +651,14 @@ class _TripDetailsTab extends StatelessWidget {
                 label: 'Loading item',
                 child: _CustomDropdown(
                   hint: 'Select your load',
-                  options: const [
-                    'Electronics',
-                    'Furniture',
-                    'Food',
-                    'Machinery',
-                  ],
+                  options: loadTypes,
+                  // options: loadTypes,
+                  // options: const [
+                  //   'Electronics',
+                  //   'Furniture',
+                  //   'Food',
+                  //   'Machinery',
+                  // ],
                   value: loadType,
                   onChanged: onLoadTypeChanged,
                 ),

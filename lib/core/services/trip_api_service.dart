@@ -24,7 +24,31 @@ class TripApiService {
     'Accept': 'application/json',
     'Content-Type': 'application/x-www-form-urlencoded',
   };
+  
+Future<Map<String, dynamic>> getTripChoices() async {
+  final url = Uri.parse(
+    "https://lorry.workwista.com/api/users/trip/get/choices/",
+  );
 
+  final response = await http.get(
+    url,
+    headers: const {
+      'Accept': 'application/json',
+    },
+  ).timeout(_timeout);
+
+  if (response.statusCode != 200) {
+    throw TripApiException("Failed to load trip choices");
+  }
+
+  final decoded = jsonDecode(response.body);
+
+  if (decoded is Map<String, dynamic>) {
+    return decoded;
+  }
+
+  throw TripApiException("Invalid API format");
+}
   Future<Map<String, dynamic>> postTrip({
     required Map<String, String> payload,
     String? accessToken,
