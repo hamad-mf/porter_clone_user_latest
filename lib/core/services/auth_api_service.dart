@@ -170,8 +170,8 @@ class AuthApiService {
 
     final data = payload['data'];
     final dataMap = data is Map<String, dynamic> ? data : <String, dynamic>{};
-    final accessToken = dataMap['access']?.toString() ?? '';
-    final refreshToken = dataMap['refresh']?.toString() ?? '';
+    final accessToken = dataMap['access_token']?.toString() ?? '';
+    final refreshToken = dataMap['refresh_token']?.toString() ?? '';
     if (accessToken.isEmpty || refreshToken.isEmpty) {
       throw AuthApiException('Invalid response: tokens are missing.');
     }
