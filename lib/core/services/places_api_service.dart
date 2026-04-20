@@ -141,7 +141,7 @@ class PlacesApiService {
   Future<String?> reverseGeocode(LatLng position) async {
     final query = <String, String>{
       'latlng': '${position.latitude},${position.longitude}',
-      'key': kGoogleMapsApiKey,
+      'key': kGoogleGeocodingApiKey, // uses the Geocoding-API-enabled key
       'language': 'en',
     };
     final uri = Uri.parse('https://maps.googleapis.com/maps/api/geocode/json')

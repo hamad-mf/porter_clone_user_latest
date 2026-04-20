@@ -55,7 +55,10 @@ class _MapPickerPageState extends State<MapPickerPage> {
   bool _isSearching = false;
   bool _isFetchingDetails = false;
   bool _hasLocationPermission = false;
+  bool _isConfirming = false;
   String? _resolvedAddress;
+  // Holds the in-flight reverse-geocode so _confirm() can await it.
+  Future<void>? _pendingGeocode;
 
   @override
   void initState() {
@@ -82,19 +85,19 @@ class _MapPickerPageState extends State<MapPickerPage> {
     return 'Lat $lat, Lng $lng';
   }
 
- Future<void> _reverseGeocode(LatLng position) async {
-  try {
-    final address = await _placesApiService.reverseGeocode(position);
-
-    print("DEBUG ADDRESS: $address"); // 👈 ADD THIS
-
-    if (!mounted) return;
-
-    setState(() => _resolvedAddress = address);
-  } catch (e) {
-    print("ERROR: $e"); // 👈 ADD THIS
+  void _reverseGeocode(LatLng position) {
+    final future = () async {
+      try {
+        final address = await _placesApiService.reverseGeocode(position);
+        if (!mounted) return;
+        setState(() => _resolvedAddress = address);
+      } catch (e) {
+        // silently ignored
+      }
+    }();
+    // Store so _confirm() can await it if the user taps before it finishes.
+    _pendingGeocode = future;
   }
-}
 
   void _onSearchChanged() {
     if (_suppressSearch) {
@@ -163,7 +166,9 @@ class _MapPickerPageState extends State<MapPickerPage> {
       _suggestions = [];
       _isFetchingDetails = false;
     });
-    await _reverseGeocode(resolved.location);
+    _reverseGeocode(resolved.location);
+    // Guard against the widget being disposed before the async gap resolves.
+    if (!mounted) return;
     await _controller?.animateCamera(
       CameraUpdate.newLatLngZoom(resolved.location, 14),
     );
@@ -285,10 +290,22 @@ class _MapPickerPageState extends State<MapPickerPage> {
     );
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
+    // If reverse geocoding is still in flight, wait for it so we get the
+    // proper address name instead of a raw lat/lng fallback.
+    if (_pendingGeocode != null) {
+      setState(() => _isConfirming = true);
+      await _pendingGeocode;
+      _pendingGeocode = null;
+      if (!mounted) return;
+      setState(() => _isConfirming = false);
+    }
+
     final label = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
         : (_resolvedAddress?.isNotEmpty == true ? _resolvedAddress! : _labelFor(_selected));
+
+    if (!mounted) return;
     Navigator.of(context).pop(
       PickedLocation(
         position: _selected,
@@ -404,8 +421,8 @@ class _MapPickerPageState extends State<MapPickerPage> {
                       padding: EdgeInsets.zero,
                       physics: const ClampingScrollPhysics(),
                       itemCount: _suggestions.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1),
+                      separatorBuilder: (_, __) =>                     
+                      const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final suggestion = _suggestions[index];
                         return ListTile(
@@ -445,7 +462,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _confirm,
+                onPressed: _isConfirming ? null : _confirm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0D1117),
                   foregroundColor: Colors.white,
@@ -454,10 +471,19 @@ class _MapPickerPageState extends State<MapPickerPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Use this location',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                child: _isConfirming
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Use this location',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
               ),
             ),
           ),

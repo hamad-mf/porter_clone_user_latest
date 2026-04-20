@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:porter_clone_user/core/services/trip_api_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
 import 'package:porter_clone_user/features/map/view/map_picker_page.dart';
+import 'package:porter_clone_user/features/dashboard/view/dashboard_page.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const Color _pageBg = Color(0xFFf4f4f4);
@@ -387,6 +388,12 @@ class _AddTripPageState extends State<AddTripPage> {
       if (shouldNavigate == true) {
         Navigator.of(context).pop();
       }
+//      if (shouldNavigate == true) {
+//   Navigator.of(context).pushAndRemoveUntil(
+//     MaterialPageRoute(builder: (_) => Dashboard()),
+//     (route) => false,
+//   );
+// }
     } on TripApiException catch (error) {
       _showMessage(error.message);
     } catch (_) {
