@@ -45,8 +45,11 @@ class PlacesApiService {
 
     final uri = Uri.parse('$_baseUrl/autocomplete/json')
         .replace(queryParameters: query);
+          print("🌍 URL: $uri"); // 👈 PRINT URL
     final response = await http.get(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+          print("❌ HTTP ERROR: ${response.statusCode}");
+
       return const [];
     }
 

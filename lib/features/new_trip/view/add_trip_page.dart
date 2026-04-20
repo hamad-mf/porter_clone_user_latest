@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:porter_clone_user/core/services/trip_api_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
@@ -20,6 +22,13 @@ BoxDecoration _fieldDecoration() => BoxDecoration(
   border: Border.all(color: _fieldBorder, width: 1),
 );
 
+class _TripChoice {
+  const _TripChoice({required this.value, required this.label});
+
+  final String value;
+  final String label;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 class AddTripPage extends StatefulWidget {
   const AddTripPage({super.key});
@@ -35,17 +44,16 @@ class _AddTripPageState extends State<AddTripPage> {
   final TextEditingController _pickupController = TextEditingController();
   final TextEditingController _dropController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
-  
 
- // API dropdown values (REAL DATA)
-  List<String> vehicleSizes = [];
-  List<String> bodyTypes = [];
-  List<String> loadTypes = [];
+  List<_TripChoice> _loadSizeChoices = const [];
+  List<_TripChoice> _bodyTypeChoices = const [];
+  List<_TripChoice> _loadTypeChoices = const [];
+  List<_TripChoice> _toneChoices = const [];
 
-  String? _vehicleSize;
   String? _bodyType;
   String? _loadType;
   String? _loadSize;
+  String? _tone;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
@@ -57,7 +65,14 @@ class _AddTripPageState extends State<AddTripPage> {
   bool _isSubmitting = false;
 
   void _next() {
-    if (_step < 1) setState(() => _step++);
+    final error = _validateTripDetails();
+    if (error != null) {
+      _showMessage(error);
+      return;
+    }
+    if (_step < 1) {
+      setState(() => _step++);
+    }
   }
 
   void _back() {
@@ -68,36 +83,107 @@ class _AddTripPageState extends State<AddTripPage> {
   static const _progress = [0.50, 1.0];
 
   @override
-void initState() {
-  super.initState();
-  _fetchChoices();
-}
-Future<void> _fetchChoices() async {
-  try {
-    final response = await _tripApiService.getTripChoices();
-
-    setState(() {
-      vehicleSizes = (response['load_size'] as List)
-          .map((e) => e['label'].toString())
-          .toList();
-
-      bodyTypes = (response['body_type'] as List)
-          .map((e) => e['label'].toString())
-          .toList();
-
-      loadTypes = (response['load_type'] as List)
-          .map((e) => e['label'].toString())
-          .toList();
-    });
-
-    print("vehicleSizes: $vehicleSizes");
-    print("bodyTypes: $bodyTypes");
-    print("loadTypes: $loadTypes");
-
-  } catch (e) {
-    print("API Error: $e");
+  void initState() {
+    super.initState();
+    _fetchChoices();
   }
-}
+
+  Future<void> _fetchChoices() async {
+    try {
+      final response = await _tripApiService.getTripChoices();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadSizeChoices = _parseChoices(response['load_size']);
+        _bodyTypeChoices = _parseChoices(response['body_type']);
+        _loadTypeChoices = _parseChoices(response['load_type']);
+        _toneChoices = _parseChoices(response['tone']);
+      });
+
+      debugPrint(
+        'Trip choices loaded: '
+        'load_size=${_loadSizeChoices.length}, '
+        'body_type=${_bodyTypeChoices.length}, '
+        'load_type=${_loadTypeChoices.length}, '
+        'tone=${_toneChoices.length}',
+      );
+    } catch (error) {
+      debugPrint('Trip choices API error: $error');
+    }
+  }
+
+  List<_TripChoice> _parseChoices(dynamic source) {
+    if (source is! List) {
+      return const <_TripChoice>[];
+    }
+
+    return source
+        .map<_TripChoice?>((entry) {
+          if (entry is! Map) {
+            return null;
+          }
+
+          final value = entry['value']?.toString().trim() ?? '';
+          final label = entry['label']?.toString().trim() ?? value;
+          if (value.isEmpty) {
+            return null;
+          }
+
+          return _TripChoice(
+            value: value,
+            label: label.isEmpty ? value : label,
+          );
+        })
+        .whereType<_TripChoice>()
+        .toList();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String? _validateTripDetails() {
+    if (_pickupController.text.trim().isEmpty) {
+      return 'Select a starting location.';
+    }
+    if (_dropController.text.trim().isEmpty) {
+      return 'Select a destination.';
+    }
+    if ((_loadSize ?? '').trim().isEmpty) {
+      return 'Select a load size.';
+    }
+    if ((_bodyType ?? '').trim().isEmpty) {
+      return 'Select a body type.';
+    }
+    if ((_loadType ?? '').trim().isEmpty) {
+      return 'Select a loading item.';
+    }
+    if (_startTime == null) {
+      return 'Select a pickup time.';
+    }
+    if (_endTime == null) {
+      return 'Select an ending time.';
+    }
+    if ((_tone ?? '').trim().isEmpty) {
+      return 'Select a tone.';
+    }
+    return null;
+  }
+
+  String? _validateOwnerDetails() {
+    if (_contactNumberController.text.trim().isEmpty) {
+      return 'Enter a contact number.';
+    }
+    return null;
+  }
   @override
   void dispose() {
     _pickupController.dispose();
@@ -141,6 +227,12 @@ Future<void> _fetchChoices() async {
       .where((value) => value.isNotEmpty)
       .toList();
 
+  List<String> _buildStops() => <String>[
+        _pickupController.text.trim(),
+        ..._pendingStops(),
+        _dropController.text.trim(),
+      ].where((value) => value.isNotEmpty).toList();
+
   String _formatPayloadTime(TimeOfDay? time) {
     if (time == null) {
       return '';
@@ -150,35 +242,50 @@ Future<void> _fetchChoices() async {
     return '$h:$m';
   }
 
-  String _normalizeLoadSize(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return '';
-    }
-    final match = RegExp(r'\d+(\.\d+)?').firstMatch(value);
-    return match?.group(0) ?? value.trim();
-  }
-
   Map<String, String> _buildTripPayload() {
-    return <String, String>{
+    final payload = <String, String>{
       'pickup_location': _pickupController.text.trim(),
       'drop_location': _dropController.text.trim(),
-      'load_size': _normalizeLoadSize(_loadSize),
+      'load_size': (_loadSize ?? '').trim(),
       'load_type': (_loadType ?? '').trim(),
       'start_time': _formatPayloadTime(_startTime),
       'end_time': _formatPayloadTime(_endTime),
-      'vehicle_size': (_vehicleSize ?? '').trim(),
       'body_type': (_bodyType ?? '').trim(),
+      'tone': (_tone ?? '').trim(),
       'name': _ownerNameController.text.trim(),
       'contact_number': _contactNumberController.text.trim(),
       'secondary_contact_number':
           _secondaryContactNumberController.text.trim(),
     };
+
+    final stops = _buildStops();
+    if (stops.isNotEmpty) {
+      payload['stops'] = jsonEncode(stops);
+    }
+
+    return payload;
   }
 
   Future<void> _submit() async {
     if (_isSubmitting) {
       return;
     }
+
+    final tripError = _validateTripDetails();
+    if (tripError != null) {
+      if (_step != 0) {
+        setState(() => _step = 0);
+      }
+      _showMessage(tripError);
+      return;
+    }
+
+    final ownerError = _validateOwnerDetails();
+    if (ownerError != null) {
+      _showMessage(ownerError);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     final payload = _buildTripPayload();
     final stopsPending = _pendingStops();
@@ -281,19 +388,9 @@ Future<void> _fetchChoices() async {
         Navigator.of(context).pop();
       }
     } on TripApiException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      _showMessage(error.message);
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to submit trip.')),
-      );
+      _showMessage('Failed to submit trip.');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -409,18 +506,18 @@ Future<void> _fetchChoices() async {
                       stopControllers: _stopControllers,
                       onAddStop: _addStop,
                       onPickStop: _pickStop,
-                      vehicleSize: _vehicleSize,
-                      onVehicleSizeChanged: (value) =>
-                          setState(() => _vehicleSize = value),
+                      sizeValue: _loadSize,
+                      onSizeChanged: (value) =>
+                          setState(() => _loadSize = value),
                       bodyType: _bodyType,
                       onBodyTypeChanged: (value) =>
                           setState(() => _bodyType = value),
                       loadType: _loadType,
                       onLoadTypeChanged: (value) =>
                           setState(() => _loadType = value),
-                      loadSize: _loadSize,
-                      onLoadSizeChanged: (value) =>
-                          setState(() => _loadSize = value),
+                      toneValue: _tone,
+                      onToneChanged: (value) =>
+                          setState(() => _tone = value),
                       startTime: _startTime,
                       onStartTimeChanged: (value) =>
                           setState(() => _startTime = value),
@@ -428,9 +525,10 @@ Future<void> _fetchChoices() async {
                       onEndTimeChanged: (value) =>
                           setState(() => _endTime = value),
                            // ✅ ADD THESE (IMPORTANT FIX)
-  loadTypes: loadTypes,
-  vehicleSizes: vehicleSizes,
-  bodyTypes: bodyTypes,
+                      loadTypeOptions: _loadTypeChoices,
+                      sizeOptions: _loadSizeChoices,
+                      bodyTypeOptions: _bodyTypeChoices,
+                      toneOptions: _toneChoices,
                           
                     ),
                     _OwnerDetailsTab(
@@ -501,22 +599,22 @@ class _TripDetailsTab extends StatelessWidget {
     required this.stopControllers,
     required this.onAddStop,
     required this.onPickStop,
-    required this.vehicleSize,
-    required this.onVehicleSizeChanged,
+    required this.sizeValue,
+    required this.onSizeChanged,
     required this.bodyType,
     required this.onBodyTypeChanged,
     required this.loadType,
     required this.onLoadTypeChanged,
-    required this.loadSize,
-    required this.onLoadSizeChanged,
+    required this.toneValue,
+    required this.onToneChanged,
     required this.startTime,
     required this.onStartTimeChanged,
     required this.endTime,
     required this.onEndTimeChanged,
-    required this.loadTypes,
-    required this.vehicleSizes,
-        required this.bodyTypes,
-
+    required this.loadTypeOptions,
+    required this.sizeOptions,
+    required this.bodyTypeOptions,
+    required this.toneOptions,
   });
   final VoidCallback onNext;
   final TextEditingController pickupController;
@@ -526,22 +624,22 @@ class _TripDetailsTab extends StatelessWidget {
   final List<TextEditingController> stopControllers;
   final VoidCallback onAddStop;
   final void Function(int) onPickStop;
-  final String? vehicleSize;
-  final ValueChanged<String> onVehicleSizeChanged;
+  final String? sizeValue;
+  final ValueChanged<String> onSizeChanged;
   final String? bodyType;
   final ValueChanged<String> onBodyTypeChanged;
   final String? loadType;
   final ValueChanged<String> onLoadTypeChanged;
-  final String? loadSize;
-  final ValueChanged<String> onLoadSizeChanged;
+  final String? toneValue;
+  final ValueChanged<String> onToneChanged;
   final TimeOfDay? startTime;
   final ValueChanged<TimeOfDay> onStartTimeChanged;
   final TimeOfDay? endTime;
   final ValueChanged<TimeOfDay> onEndTimeChanged;
-  final List<String> loadTypes;
-  final List<String> vehicleSizes;
-    final List<String> bodyTypes;
-
+  final List<_TripChoice> loadTypeOptions;
+  final List<_TripChoice> sizeOptions;
+  final List<_TripChoice> bodyTypeOptions;
+  final List<_TripChoice> toneOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -592,11 +690,10 @@ class _TripDetailsTab extends StatelessWidget {
               child: _LabeledField(
                 label: 'Size (Length)',
                 child: _CustomDropdown(
-                  hint: '7-8 ft',
-                  options: vehicleSizes,
-                  // options: const ['7-8 ft', '9-12 ft', '13-17 ft'],
-                  value: vehicleSize,
-                  onChanged: onVehicleSizeChanged,
+                  hint: 'Select size',
+                  options: sizeOptions,
+                  value: sizeValue,
+                  onChanged: onSizeChanged,
                 ),
               ),
             ),
@@ -606,8 +703,7 @@ class _TripDetailsTab extends StatelessWidget {
                 label: 'Body Type',
                 child: _CustomDropdown(
                   hint: 'Common',
-                 options: bodyTypes,
-                  // options: const ['Common', 'Container', 'Open Body'],
+                  options: bodyTypeOptions,
                   value: bodyType,
                   onChanged: onBodyTypeChanged,
                 ),
@@ -651,14 +747,7 @@ class _TripDetailsTab extends StatelessWidget {
                 label: 'Loading item',
                 child: _CustomDropdown(
                   hint: 'Select your load',
-                  options: loadTypes,
-                  // options: loadTypes,
-                  // options: const [
-                  //   'Electronics',
-                  //   'Furniture',
-                  //   'Food',
-                  //   'Machinery',
-                  // ],
+                  options: loadTypeOptions,
                   value: loadType,
                   onChanged: onLoadTypeChanged,
                 ),
@@ -670,9 +759,9 @@ class _TripDetailsTab extends StatelessWidget {
                 label: 'Tone',
                 child: _CustomDropdown(
                   hint: 'Select your tone',
-                  options: const ['1 Ton', '2 Ton', '5 Ton', '10 Ton'],
-                  value: loadSize,
-                  onChanged: onLoadSizeChanged,
+                  options: toneOptions,
+                  value: toneValue,
+                  onChanged: onToneChanged,
                 ),
               ),
             ),
@@ -1017,9 +1106,24 @@ class _CustomDropdown extends StatelessWidget {
     required this.onChanged,
   });
   final String hint;
-  final List<String> options;
+  final List<_TripChoice> options;
   final String? value;
   final ValueChanged<String> onChanged;
+
+  String? _selectedLabel() {
+    final selectedValue = value;
+    if (selectedValue == null) {
+      return null;
+    }
+
+    for (final option in options) {
+      if (option.value == selectedValue) {
+        return option.label;
+      }
+    }
+
+    return selectedValue;
+  }
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1044,9 +1148,9 @@ class _CustomDropdown extends StatelessWidget {
               return options
                   .map(
                     (option) => PopupMenuItem<String>(
-                      value: option,
+                      value: option.value,
                       child: Text(
-                        option,
+                        option.label,
                         style: const TextStyle(
                           color: Color(0xFF222222),
                           fontSize: 13,
@@ -1063,7 +1167,7 @@ class _CustomDropdown extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      value ?? hint,
+                      _selectedLabel() ?? hint,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: value == null
@@ -1275,4 +1379,3 @@ class _DottedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }
-
