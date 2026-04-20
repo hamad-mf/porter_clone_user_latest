@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:porter_clone_user/core/services/trip_api_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
 import 'package:porter_clone_user/features/map/view/map_picker_page.dart';
-import 'package:porter_clone_user/features/dashboard/view/dashboard_page.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const Color _pageBg = Color(0xFFf4f4f4);
@@ -32,7 +31,9 @@ class _TripChoice {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 class AddTripPage extends StatefulWidget {
-  const AddTripPage({super.key});
+  const AddTripPage({super.key, this.onSuccess});
+
+  final VoidCallback? onSuccess;
 
   @override
   State<AddTripPage> createState() => _AddTripPageState();
@@ -64,6 +65,24 @@ class _AddTripPageState extends State<AddTripPage> {
       TextEditingController();
 
   bool _isSubmitting = false;
+
+  void _resetForm() {
+    setState(() {
+      _step = 0;
+      _pickupController.clear();
+      _dropController.clear();
+      _stopControllers.clear();
+      _loadSize = null;
+      _bodyType = null;
+      _loadType = null;
+      _tone = null;
+      _startTime = null;
+      _endTime = null;
+      _ownerNameController.clear();
+      _contactNumberController.clear();
+      _secondaryContactNumberController.clear();
+    });
+  }
 
   void _next() {
     final error = _validateTripDetails();
@@ -386,14 +405,17 @@ class _AddTripPageState extends State<AddTripPage> {
         return;
       }
       if (shouldNavigate == true) {
-        Navigator.of(context).pop();
+        if (Navigator.canPop(context)) {
+          // It was pushed (e.g. from the 'Create Trip' card)
+          Navigator.pop(context);
+        } else {
+          // It's the bottom tab. Reset the form and switch tab if callback provided.
+          _resetForm();
+          if (widget.onSuccess != null) {
+            widget.onSuccess!();
+          }
+        }
       }
-//      if (shouldNavigate == true) {
-//   Navigator.of(context).pushAndRemoveUntil(
-//     MaterialPageRoute(builder: (_) => Dashboard()),
-//     (route) => false,
-//   );
-// }
     } on TripApiException catch (error) {
       _showMessage(error.message);
     } catch (_) {

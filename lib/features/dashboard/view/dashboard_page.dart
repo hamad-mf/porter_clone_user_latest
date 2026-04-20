@@ -19,11 +19,11 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _tabs = [
-    _DashboardHomeTab(),
-    _AddTripScreen(),
-    _StatusScreen(),
-    _ProfileScreen(),
+  late final List<Widget> _tabs = [
+    const _DashboardHomeTab(),
+    _AddTripScreen(onTripAdded: () => _onNavTap(0)),
+    const _StatusScreen(),
+    const _ProfileScreen(),
   ];
 
   void _onNavTap(int index) {
@@ -541,11 +541,13 @@ class _MyTripScreen extends StatelessWidget {
 }
 
 class _AddTripScreen extends StatelessWidget {
-  const _AddTripScreen();
+  const _AddTripScreen({this.onTripAdded});
+
+  final VoidCallback? onTripAdded;
 
   @override
   Widget build(BuildContext context) {
-    return const AddTripPage();
+    return AddTripPage(onSuccess: onTripAdded);
   }
 }
 
