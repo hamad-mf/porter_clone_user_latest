@@ -47,6 +47,12 @@ class _AddTripPageState extends State<AddTripPage> {
   final TextEditingController _dropController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
+  // Store coordinates for pickup and drop locations
+  double? _pickupLat;
+  double? _pickupLng;
+  double? _dropLat;
+  double? _dropLng;
+
   List<_TripChoice> _loadSizeChoices = const [];
   List<_TripChoice> _bodyTypeChoices = const [];
   List<_TripChoice> _loadTypeChoices = const [];
@@ -57,11 +63,12 @@ class _AddTripPageState extends State<AddTripPage> {
   String? _loadSize;
   String? _tone;
   TimeOfDay? _startTime;
-  TimeOfDay? _endTime;
+  DateTime? _pickupDate;
 
+  final TextEditingController _amountController = TextEditingController();
   final TextEditingController _ownerNameController = TextEditingController();
   final TextEditingController _contactNumberController = TextEditingController();
-  final TextEditingController _secondaryContactNumberController =
+  final TextEditingController _receiverNumberController =
       TextEditingController();
 
   bool _isSubmitting = false;
@@ -72,15 +79,20 @@ class _AddTripPageState extends State<AddTripPage> {
       _pickupController.clear();
       _dropController.clear();
       _stopControllers.clear();
+      _pickupLat = null;
+      _pickupLng = null;
+      _dropLat = null;
+      _dropLng = null;
       _loadSize = null;
       _bodyType = null;
       _loadType = null;
       _tone = null;
       _startTime = null;
-      _endTime = null;
+      _pickupDate = null;
+      _amountController.clear();
       _ownerNameController.clear();
       _contactNumberController.clear();
-      _secondaryContactNumberController.clear();
+      _receiverNumberController.clear();
     });
   }
 
@@ -99,7 +111,7 @@ class _AddTripPageState extends State<AddTripPage> {
     if (_step > 0) setState(() => _step--);
   }
 
-  static const _titles = ['Trip Details', 'Owner Details'];
+  static const _titles = ['Trip Details', 'Trip Details'];
   static const _progress = [0.50, 1.0];
 
   @override
@@ -119,7 +131,7 @@ class _AddTripPageState extends State<AddTripPage> {
         _loadSizeChoices = _parseChoices(response['load_size']);
         _bodyTypeChoices = _parseChoices(response['body_type']);
         _loadTypeChoices = _parseChoices(response['load_type']);
-        _toneChoices = _parseChoices(response['tone']);
+        _toneChoices = _parseChoices(response['vehicle_size']);
       });
 
       debugPrint(
@@ -189,8 +201,8 @@ class _AddTripPageState extends State<AddTripPage> {
     if (_startTime == null) {
       return 'Select a pickup time.';
     }
-    if (_endTime == null) {
-      return 'Select an ending time.';
+    if (_pickupDate == null) {
+      return 'Select a pickup date.';
     }
     if ((_tone ?? '').trim().isEmpty) {
       return 'Select a tone.';
@@ -204,6 +216,7 @@ class _AddTripPageState extends State<AddTripPage> {
     }
     return null;
   }
+
   @override
   void dispose() {
     _pickupController.dispose();
@@ -211,9 +224,10 @@ class _AddTripPageState extends State<AddTripPage> {
     for (final controller in _stopControllers) {
       controller.dispose();
     }
+    _amountController.dispose();
     _ownerNameController.dispose();
     _contactNumberController.dispose();
-    _secondaryContactNumberController.dispose();
+    _receiverNumberController.dispose();
     super.dispose();
   }
 
@@ -226,6 +240,15 @@ class _AddTripPageState extends State<AddTripPage> {
       return;
     }
     controller.text = picked.label;
+
+    // Store coordinates based on which field is being updated
+    if (controller == _pickupController) {
+      _pickupLat = picked.position.latitude;
+      _pickupLng = picked.position.longitude;
+    } else if (controller == _dropController) {
+      _dropLat = picked.position.latitude;
+      _dropLng = picked.position.longitude;
+    }
   }
 
   void _addStop() {
@@ -254,12 +277,19 @@ class _AddTripPageState extends State<AddTripPage> {
       ].where((value) => value.isNotEmpty).toList();
 
   String _formatPayloadTime(TimeOfDay? time) {
-    if (time == null) {
-      return '';
-    }
+    if (time == null) return '';
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+
+  /// Formats the pickup date as YYYY-MM-DD for the backend.
+  String _formatPayloadDate(DateTime? date) {
+    if (date == null) return '';
+    final y = date.year.toString();
+    final mo = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$mo-$d';
   }
 
   Map<String, String> _buildTripPayload() {
@@ -269,18 +299,38 @@ class _AddTripPageState extends State<AddTripPage> {
       'load_size': (_loadSize ?? '').trim(),
       'load_type': (_loadType ?? '').trim(),
       'start_time': _formatPayloadTime(_startTime),
-      'end_time': _formatPayloadTime(_endTime),
+      'pickup_date': _formatPayloadDate(_pickupDate),
       'body_type': (_bodyType ?? '').trim(),
       'tone': (_tone ?? '').trim(),
+      'amount': _amountController.text.trim(),
       'name': _ownerNameController.text.trim(),
       'contact_number': _contactNumberController.text.trim(),
-      'secondary_contact_number':
-          _secondaryContactNumberController.text.trim(),
+      'receiver_number': _receiverNumberController.text.trim(),
     };
 
-    final stops = _buildStops();
-    if (stops.isNotEmpty) {
-      payload['stops'] = jsonEncode(stops);
+    // Add coordinates if available
+    if (_pickupLat != null) {
+      payload['pickup_loc_lat'] = _pickupLat.toString();
+    }
+    if (_pickupLng != null) {
+      payload['pickup_loc_lng'] = _pickupLng.toString();
+    }
+    if (_dropLat != null) {
+      payload['drop_loc_lat'] = _dropLat.toString();
+    }
+    if (_dropLng != null) {
+      payload['drop_loc_lng'] = _dropLng.toString();
+    }
+
+    // Only include stops if user explicitly added intermediate stops
+    final pendingStops = _pendingStops();
+    if (pendingStops.isNotEmpty) {
+      final allStops = <String>[
+        _pickupController.text.trim(),
+        ...pendingStops,
+        _dropController.text.trim(),
+      ].where((value) => value.isNotEmpty).toList();
+      payload['stops'] = jsonEncode(allStops);
     }
 
     return payload;
@@ -309,6 +359,19 @@ class _AddTripPageState extends State<AddTripPage> {
     setState(() => _isSubmitting = true);
     final payload = _buildTripPayload();
     final stopsPending = _pendingStops();
+
+    // Print the final payload to console
+    debugPrint('═══════════════════════════════════════════════════════');
+    debugPrint('FINAL TRIP PAYLOAD:');
+    debugPrint('═══════════════════════════════════════════════════════');
+    payload.forEach((key, value) {
+      debugPrint('  $key: $value');
+    });
+    if (stopsPending.isNotEmpty) {
+      debugPrint('  stops_pending: ${jsonEncode(stopsPending)}');
+    }
+    debugPrint('═══════════════════════════════════════════════════════');
+
     try {
       final accessToken = await AuthLocalStorage.getAccessToken();
       await _tripApiService.postTrip(
@@ -322,6 +385,7 @@ class _AddTripPageState extends State<AddTripPage> {
       final shouldNavigate = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
+        barrierColor: Colors.black.withOpacity(0.75),
         builder: (dialogContext) => Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 28),
@@ -517,60 +581,56 @@ class _AddTripPageState extends State<AddTripPage> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: hp),
                 physics: const ClampingScrollPhysics(),
-                  child: IndexedStack(
-                  index: _step,
-                  children: [
-                    _TripDetailsTab(
-                      onNext: _next,
-                      pickupController: _pickupController,
-                      dropController: _dropController,
-                      onPickStart: () => _pickLocation(
-                        controller: _pickupController,
-                        title: 'Select starting location',
+                // FIX: replaced IndexedStack with a conditional so only the
+                // active tab is in the widget tree, eliminating phantom overflow.
+                child: _step == 0
+                    ? _TripDetailsTab(
+                        onNext: _next,
+                        pickupController: _pickupController,
+                        dropController: _dropController,
+                        onPickStart: () => _pickLocation(
+                          controller: _pickupController,
+                          title: 'Select starting location',
+                        ),
+                        onPickDrop: () => _pickLocation(
+                          controller: _dropController,
+                          title: 'Select destination',
+                        ),
+                        stopControllers: _stopControllers,
+                        onAddStop: _addStop,
+                        onPickStop: _pickStop,
+                        sizeValue: _loadSize,
+                        onSizeChanged: (value) =>
+                            setState(() => _loadSize = value),
+                        bodyType: _bodyType,
+                        onBodyTypeChanged: (value) =>
+                            setState(() => _bodyType = value),
+                        loadType: _loadType,
+                        onLoadTypeChanged: (value) =>
+                            setState(() => _loadType = value),
+                        toneValue: _tone,
+                        onToneChanged: (value) =>
+                            setState(() => _tone = value),
+                        startTime: _startTime,
+                        onStartTimeChanged: (value) =>
+                            setState(() => _startTime = value),
+                        pickupDate: _pickupDate,
+                        onPickupDateChanged: (value) =>
+                            setState(() => _pickupDate = value),
+                        loadTypeOptions: _loadTypeChoices,
+                        sizeOptions: _loadSizeChoices,
+                        bodyTypeOptions: _bodyTypeChoices,
+                        toneOptions: _toneChoices,
+                      )
+                    : _OwnerDetailsTab(
+                        onBack: _back,
+                        isSubmitting: _isSubmitting,
+                        onSubmit: _submit,
+                        amountController: _amountController,
+                        nameController: _ownerNameController,
+                        contactNumberController: _contactNumberController,
+                        receiverNumberController: _receiverNumberController,
                       ),
-                      onPickDrop: () => _pickLocation(
-                        controller: _dropController,
-                        title: 'Select destination',
-                      ),
-                      stopControllers: _stopControllers,
-                      onAddStop: _addStop,
-                      onPickStop: _pickStop,
-                      sizeValue: _loadSize,
-                      onSizeChanged: (value) =>
-                          setState(() => _loadSize = value),
-                      bodyType: _bodyType,
-                      onBodyTypeChanged: (value) =>
-                          setState(() => _bodyType = value),
-                      loadType: _loadType,
-                      onLoadTypeChanged: (value) =>
-                          setState(() => _loadType = value),
-                      toneValue: _tone,
-                      onToneChanged: (value) =>
-                          setState(() => _tone = value),
-                      startTime: _startTime,
-                      onStartTimeChanged: (value) =>
-                          setState(() => _startTime = value),
-                      endTime: _endTime,
-                      onEndTimeChanged: (value) =>
-                          setState(() => _endTime = value),
-                           // ✅ ADD THESE (IMPORTANT FIX)
-                      loadTypeOptions: _loadTypeChoices,
-                      sizeOptions: _loadSizeChoices,
-                      bodyTypeOptions: _bodyTypeChoices,
-                      toneOptions: _toneChoices,
-                          
-                    ),
-                    _OwnerDetailsTab(
-                      onBack: _back,
-                      isSubmitting: _isSubmitting,
-                      onSubmit: _submit,
-                      nameController: _ownerNameController,
-                      contactNumberController: _contactNumberController,
-                      secondaryContactNumberController:
-                          _secondaryContactNumberController,
-                    ),
-                  ],
-                ),
               ),
             ),
           ],
@@ -638,8 +698,8 @@ class _TripDetailsTab extends StatelessWidget {
     required this.onToneChanged,
     required this.startTime,
     required this.onStartTimeChanged,
-    required this.endTime,
-    required this.onEndTimeChanged,
+    required this.pickupDate,
+    required this.onPickupDateChanged,
     required this.loadTypeOptions,
     required this.sizeOptions,
     required this.bodyTypeOptions,
@@ -663,8 +723,8 @@ class _TripDetailsTab extends StatelessWidget {
   final ValueChanged<String> onToneChanged;
   final TimeOfDay? startTime;
   final ValueChanged<TimeOfDay> onStartTimeChanged;
-  final TimeOfDay? endTime;
-  final ValueChanged<TimeOfDay> onEndTimeChanged;
+  final DateTime? pickupDate;
+  final ValueChanged<DateTime> onPickupDateChanged;
   final List<_TripChoice> loadTypeOptions;
   final List<_TripChoice> sizeOptions;
   final List<_TripChoice> bodyTypeOptions;
@@ -757,10 +817,10 @@ class _TripDetailsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledField(
-                label: 'Ending time',
-                child: _TimeField(
-                  value: endTime,
-                  onChanged: onEndTimeChanged,
+                label: 'Pickup date',
+                child: _DateField(
+                  value: pickupDate,
+                  onChanged: onPickupDateChanged,
                 ),
               ),
             ),
@@ -807,25 +867,25 @@ class _TripDetailsTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// TAB 2 Owner Details
+// TAB 2 — Owner Details
 // ─────────────────────────────────────────────────────────────────────────────
 class _OwnerDetailsTab extends StatelessWidget {
   const _OwnerDetailsTab({
     required this.onBack,
     required this.onSubmit,
     required this.isSubmitting,
+    required this.amountController,
     required this.nameController,
     required this.contactNumberController,
-    required this.secondaryContactNumberController,
+    required this.receiverNumberController,
   });
   final VoidCallback onBack;
   final VoidCallback onSubmit;
   final bool isSubmitting;
+  final TextEditingController amountController;
   final TextEditingController nameController;
   final TextEditingController contactNumberController;
-  final TextEditingController secondaryContactNumberController;
+  final TextEditingController receiverNumberController;
 
   @override
   Widget build(BuildContext context) {
@@ -834,6 +894,17 @@ class _OwnerDetailsTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _LabeledField(
+          label: 'Amount',
+          child: _CustomTextField(
+            hint: 'Enter amount',
+            controller: amountController,
+            keyboardType: TextInputType.number,
+          ),
+        ),
+
+        SizedBox(height: sh * 0.022),
+
         _LabeledField(
           label: 'Name',
           child: _CustomTextField(
@@ -881,10 +952,10 @@ class _OwnerDetailsTab extends StatelessWidget {
         SizedBox(height: sh * 0.022),
 
         _LabeledField(
-          label: 'Alternative Number',
+          label: 'Receiver Number',
           child: _CustomTextField(
             hint: '+91',
-            controller: secondaryContactNumberController,
+            controller: receiverNumberController,
             keyboardType: TextInputType.phone,
           ),
         ),
@@ -899,7 +970,7 @@ class _OwnerDetailsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _PrimaryButton(
-                text: isSubmitting ? 'Submitting...' : 'Submit',
+                text: isSubmitting ? 'Posting...' : 'Submit',
                 onPressed: isSubmitting ? null : onSubmit,
                 isLoading: isSubmitting,
               ),
@@ -1300,6 +1371,85 @@ class _TimeField extends StatelessWidget {
   );
 }
 
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.value,
+    required this.onChanged,
+    this.hint = 'Select date',
+  });
+  final DateTime? value;
+  final ValueChanged<DateTime> onChanged;
+  final String hint;
+
+  static const List<String> _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _formatDisplay(DateTime date) {
+    final d = date.day.toString().padLeft(2, '0');
+    final m = _months[date.month - 1];
+    final y = date.year;
+    return '$d $m $y';
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: value ?? now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 2),
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: const Color(0xFF0D1117),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: const Color(0xFF222222),
+            ),
+            dialogBackgroundColor: _pageBg,
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked == null) return;
+    onChanged(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => _pick(context),
+    child: Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: _fieldDecoration(),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              value == null ? hint : _formatDisplay(value!),
+              style: TextStyle(
+                color: value == null ? _hintColor : const Color(0xFF222222),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.calendar_today_outlined,
+            color: Color(0xFF444444),
+            size: 18,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({
     required this.text,
@@ -1325,6 +1475,7 @@ class _PrimaryButton extends StatelessWidget {
       child: isLoading
           ? Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(
                   width: 18,
@@ -1335,12 +1486,16 @@ class _PrimaryButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
+                // FIX: ellipsis prevents the loading text from overflowing
+                Flexible(
+                  child: Text(
+                    text,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
               ],

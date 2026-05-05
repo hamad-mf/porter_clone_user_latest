@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:porter_clone_user/core/models/accepted_driver.dart';
 import 'package:porter_clone_user/core/services/accept_driver_api_service.dart';
 import 'package:porter_clone_user/core/services/accepted_drivers_api_service.dart';
+import 'package:porter_clone_user/core/services/trip_sharing_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
+import 'package:porter_clone_user/core/storage/profile_local_storage.dart';
 import 'package:porter_clone_user/features/new_trip/view/add_trip_page.dart';
 import 'package:porter_clone_user/features/profile/view/profile_page.dart';
 import 'package:porter_clone_user/features/sign_in/view/sign_in_page.dart';
@@ -361,76 +366,140 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
   }
 }
 
-class _WelcomeHeader extends StatelessWidget {
+class _WelcomeHeader extends StatefulWidget {
   const _WelcomeHeader();
+
   @override
-Widget build(BuildContext context) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'Welcome Back',
-        style: TextStyle(
-          color: Color(0xFF888888),
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-      const SizedBox(height: 2),
+  State<_WelcomeHeader> createState() => _WelcomeHeaderState();
+}
 
-      InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ProfilePage(),
-            ),
-          );
-        },
-        child: const Text(
-          'Davidson Edgar',
-          style: TextStyle(
-            color: Color(0xFF111827),
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            height: 1.1,
+class _WelcomeHeaderState extends State<_WelcomeHeader> {
+  String _displayName = 'User';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileName();
+  }
+
+  Future<void> _loadProfileName() async {
+    final profile = await ProfileLocalStorage.getProfile();
+    if (profile?.fullName != null && profile!.fullName!.trim().isNotEmpty) {
+      setState(() {
+        _displayName = profile.fullName!;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ProfilePage(),
           ),
-        ),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Welcome Back',
+            style: TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _displayName,
+            style: const TextStyle(
+              color: Color(0xFF111827),
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+        ],
       ),
-    ],
-  );
+    );
+  }
 }
 
-  // @override
-  // Widget build(BuildContext context) {
-  //   return const Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       Text(
-  //         'Welcome Back',
-  //         style: TextStyle(
-  //           color: Color(0xFF888888),
-  //           fontSize: 13,
-  //           fontWeight: FontWeight.w400,
-  //         ),
-  //       ),
-  //       SizedBox(height: 2),
-  //       Text(
-  //         'Davidson Edgar',
-  //         style: TextStyle(
-  //           color: Color(0xFF111827),
-  //           fontSize: 22,
-  //           fontWeight: FontWeight.w700,
-  //           height: 1.1,
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
-}
-
-class _CreateTripCard extends StatelessWidget {
+class _CreateTripCard extends StatefulWidget {
   const _CreateTripCard({super.key});
+
+  @override
+  State<_CreateTripCard> createState() => _CreateTripCardState();
+}
+
+class _CreateTripCardState extends State<_CreateTripCard> {
+  String? _bannerImageUrl;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBannerImage();
+  }
+
+  Future<void> _fetchBannerImage() async {
+    try {
+      print('🔵 Fetching banner from API...');
+      final response = await http.get(
+        Uri.parse('https://lorry.workwista.com/api/users/banner/'),
+      );
+
+      print('🔵 Banner API status: ${response.statusCode}');
+      print('🔵 Banner API response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        
+        // API returns an array, get the first item
+        String? bannerPath;
+        if (decoded is List && decoded.isNotEmpty) {
+          bannerPath = decoded[0]['banner_image'] as String?;
+        } else if (decoded is Map) {
+          bannerPath = decoded['banner_image'] as String?;
+        }
+        
+        print('🔵 Banner path from API: $bannerPath');
+        
+        // Convert relative path to full URL
+        String? fullUrl;
+        if (bannerPath != null && bannerPath.isNotEmpty) {
+          if (bannerPath.startsWith('http')) {
+            fullUrl = bannerPath;
+          } else {
+            // Remove leading slash if present
+            final cleanPath = bannerPath.startsWith('/') ? bannerPath.substring(1) : bannerPath;
+            fullUrl = 'https://lorry.workwista.com/$cleanPath';
+          }
+        }
+        
+        print('🔵 Full banner URL: $fullUrl');
+        
+        setState(() {
+          _bannerImageUrl = fullUrl;
+          _isLoading = false;
+        });
+      } else {
+        print('❌ Banner API failed with status: ${response.statusCode}');
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Banner API error: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   void _openAddTrip(BuildContext context) {
     Navigator.of(
@@ -454,23 +523,50 @@ class _CreateTripCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Truck background image
-              // Place your image at: assets/images/truck_banner.jpg
-              // and register it in pubspec.yaml under flutter > assets
-              Image.asset(
-                'assets/images/truck_banner.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+              // Banner image from API or fallback
+              if (_isLoading)
+                Container(
                   color: const Color(0xFF2D3748),
                   child: const Center(
-                    child: Icon(
-                      Icons.local_shipping,
-                      size: 60,
+                    child: CircularProgressIndicator(
                       color: Colors.white38,
                     ),
                   ),
+                )
+              else if (_bannerImageUrl != null && _bannerImageUrl!.isNotEmpty)
+                Image.network(
+                  _bannerImageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    'assets/images/truck_banner.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: const Color(0xFF2D3748),
+                      child: const Center(
+                        child: Icon(
+                          Icons.local_shipping,
+                          size: 60,
+                          color: Colors.white38,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Image.asset(
+                  'assets/images/truck_banner.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFF2D3748),
+                    child: const Center(
+                      child: Icon(
+                        Icons.local_shipping,
+                        size: 60,
+                        color: Colors.white38,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
 
               // Dark gradient overlay (top only for header bar)
               Positioned(
@@ -565,6 +661,7 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _logout(BuildContext context) async {
     await AuthLocalStorage.clearTokens();
+    await ProfileLocalStorage.clearProfile();
     if (!context.mounted) {
       return;
     }
@@ -879,19 +976,14 @@ class _AcceptedDriverCardState extends State<_AcceptedDriverCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Driver name and ID row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                widget.driver.fullName,
-                style: const TextStyle(
-                  color: Color(0xFF111827),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          // Driver name
+          Text(
+            widget.driver.fullName,
+            style: const TextStyle(
+              color: Color(0xFF111827),
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
           ),
 
           const SizedBox(height: 10),

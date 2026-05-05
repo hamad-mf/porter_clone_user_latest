@@ -219,7 +219,11 @@ class _TripCard extends StatelessWidget {
     return fullAddress.split(',').first.trim();
   }
 
-  String _formatPickupTime(DateTime pickupTime) {
+  String _formatPickupTime(DateTime? pickupTime) {
+    if (pickupTime == null) {
+      return 'Time not set';
+    }
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));

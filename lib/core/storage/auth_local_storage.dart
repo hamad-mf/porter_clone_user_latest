@@ -15,6 +15,11 @@ class AuthLocalStorage {
     await prefs.setString(refreshTokenKey, refreshToken);
   }
 
+  static Future<void> saveAccessToken(String accessToken) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(accessTokenKey, accessToken);
+  }
+
   static Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(accessTokenKey);

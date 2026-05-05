@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:porter_clone_user/app/app.dart';
+import 'package:porter_clone_user/core/handlers/deep_link_handler.dart';
 import 'package:porter_clone_user/firebase_options.dart';
 
 /// ------------------------------------------------------
@@ -43,6 +44,28 @@ class NotificationService {
       ),
     );
 
+    await android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'extra_channel_one_user',
+        'Extra Channel One',
+        description: 'Extra notification channel one',
+        importance: Importance.max,
+        sound: RawResourceAndroidNotificationSound('accepted'),
+        playSound: true,
+      ),
+    );
+
+    await android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'extra_channel_two_user',
+        'Extra Channel Two',
+        description: 'Extra notification channel two',
+        importance: Importance.max,
+        sound: RawResourceAndroidNotificationSound('accepted'),
+        playSound: true,
+      ),
+    );
+
     log('✅ Channels created');
   }
 
@@ -72,9 +95,19 @@ class NotificationService {
   void registerHandlers() {
     FirebaseMessaging.onMessage.listen((message) {
       log('🟢 Foreground FCM: ${message.notification?.title}');
-      final title = message.notification?.title ?? 'Notification';
-      final body = message.notification?.body ?? '';
-      showNotification(title: title, body: body);
+      
+      // Only show notification if there's actual content
+      final title = message.notification?.title?.trim() ?? '';
+      final body = message.notification?.body?.trim() ?? '';
+      
+      if (title.isNotEmpty || body.isNotEmpty) {
+        showNotification(
+          title: title.isNotEmpty ? title : 'Lorry App',
+          body: body,
+        );
+      } else {
+        log('⚠️ Skipping empty notification');
+      }
     });
   }
 }
@@ -110,5 +143,9 @@ Future<void> main() async {
   await notificationService.createChannels();
   notificationService.registerHandlers();
 
-  runApp(const LorryApp());
+  runApp(
+    const DeepLinkHandler(
+      child: LorryApp(),
+    ),
+  );
 }

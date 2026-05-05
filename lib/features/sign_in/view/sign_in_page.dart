@@ -6,7 +6,12 @@ import 'package:porter_clone_user/core/services/auth_api_service.dart';
 import 'package:porter_clone_user/features/verification/view/verification_page.dart';
 
 class SignInPage extends StatefulWidget {
-  const SignInPage({super.key});
+  const SignInPage({
+    super.key,
+    this.redirectTripId,
+  });
+
+  final String? redirectTripId;
 
   @override
   State<SignInPage> createState() => _SignInPageState();
@@ -46,6 +51,7 @@ class _SignInPageState extends State<SignInPage> {
           builder: (_) => VerificationPage(
             phoneNumber: sendOtpResult.phoneNumber,
             verificationId: sendOtpResult.verificationId,
+            redirectTripId: widget.redirectTripId,
           ),
         ),
       );

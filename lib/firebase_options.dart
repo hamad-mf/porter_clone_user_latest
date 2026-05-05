@@ -42,17 +42,17 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDgvSMW6E0VIlvSj8_2PInlo_9cx3EF7Ag',
-    appId: '1:18825890802:web:611ef9165f37e39f22396b',
+    appId: '1:18825890802:web:5a72d2c5d14c8e3422396b',
     messagingSenderId: '18825890802',
     projectId: 'lorry-app-user',
     authDomain: 'lorry-app-user.firebaseapp.com',
     storageBucket: 'lorry-app-user.firebasestorage.app',
-    measurementId: 'G-KYNXTC2NHL',
+    measurementId: 'G-0XT08J6LY7',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCzdkVVYocSPo4tu1Vm951tdCHmgMnto2o',
-    appId: '1:18825890802:android:ae108ae6b4e2727322396b',
+    appId: '1:18825890802:android:333c37310b53591422396b',
     messagingSenderId: '18825890802',
     projectId: 'lorry-app-user',
     storageBucket: 'lorry-app-user.firebasestorage.app',

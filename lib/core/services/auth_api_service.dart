@@ -47,11 +47,44 @@ class AuthApiService {
   static final Uri _verifyOtpUri = Uri.parse(
     'https://lorry.workwista.com/api/users/verifyotp/',
   );
+  static final Uri _refreshTokenUri = Uri.parse(
+    'https://lorry.workwista.com/api/users/api/token/refresh/',
+  );
   static const Duration _timeout = Duration(seconds: 20);
   static const Map<String, String> _headers = <String, String>{
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
+
+  /// Calls the refresh-token endpoint and returns the new access token.
+  /// Throws [AuthApiException] if the refresh token is missing or the call fails.
+  Future<String> refreshToken(String refreshToken) async {
+    final trimmed = refreshToken.trim();
+    if (trimmed.isEmpty) {
+      throw AuthApiException('Refresh token is missing.');
+    }
+
+    // Backend expects multipart/form-data with key "refresh"
+    final request = http.MultipartRequest('POST', _refreshTokenUri)
+      ..fields['refresh'] = trimmed;
+
+    final streamed = await request.send().timeout(_timeout);
+    final response = await http.Response.fromStream(streamed);
+
+    final payload = _tryDecodePayload(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        _extractMessage(payload, fallback: 'Session expired. Please log in again.'),
+      );
+    }
+
+    final newAccessToken = payload['access']?.toString() ?? '';
+    if (newAccessToken.isEmpty) {
+      throw AuthApiException('Token refresh response is missing access token.');
+    }
+    return newAccessToken;
+  }
 
   Future<SendOtpResult> sendOtp({required String phoneNumber}) async {
     final trimmedPhone = phoneNumber.trim();
@@ -88,15 +121,15 @@ class AuthApiService {
       );
     }
 
-    // Extract data object (same pattern as verifyOtp)
+    // Extract data object
     final data = payload['data'];
     final dataMap = data is Map<String, dynamic> ? data : <String, dynamic>{};
-    
+
+    // For dummy accounts the server omits verificationId — use 'dummy' as fallback
+    // so the flow can continue (the verify endpoint accepts any verificationId for dummy numbers).
     final verificationIdValue = dataMap['verificationId'];
-    final verificationId = verificationIdValue?.toString() ?? '';
-    if (verificationId.isEmpty) {
-      throw AuthApiException('Invalid response: verificationId is missing.');
-    }
+    final verificationId = (verificationIdValue?.toString() ?? '').trim();
+    final resolvedVerificationId = verificationId.isNotEmpty ? verificationId : 'dummy';
 
     final mobileNumber = dataMap['mobileNumber']?.toString();
     return SendOtpResult(
@@ -104,7 +137,7 @@ class AuthApiService {
       phoneNumber: (mobileNumber == null || mobileNumber.trim().isEmpty)
           ? trimmedPhone
           : mobileNumber.trim(),
-      verificationId: verificationId,
+      verificationId: resolvedVerificationId,
     );
   }
 
@@ -170,8 +203,21 @@ class AuthApiService {
 
     final data = payload['data'];
     final dataMap = data is Map<String, dynamic> ? data : <String, dynamic>{};
-    final accessToken = dataMap['access_token']?.toString() ?? '';
-    final refreshToken = dataMap['refresh_token']?.toString() ?? '';
+    
+    // Support both 'access'/'refresh' and 'access_token'/'refresh_token' keys, 
+    // both inside 'data' and at the root level.
+    final accessToken = dataMap['access']?.toString() ??
+        dataMap['access_token']?.toString() ??
+        payload['access']?.toString() ??
+        payload['access_token']?.toString() ??
+        '';
+        
+    final refreshToken = dataMap['refresh']?.toString() ??
+        dataMap['refresh_token']?.toString() ??
+        payload['refresh']?.toString() ??
+        payload['refresh_token']?.toString() ??
+        '';
+
     if (accessToken.isEmpty || refreshToken.isEmpty) {
       throw AuthApiException('Invalid response: tokens are missing.');
     }

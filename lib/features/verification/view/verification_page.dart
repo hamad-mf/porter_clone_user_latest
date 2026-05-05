@@ -4,18 +4,24 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porter_clone_user/core/services/auth_api_service.dart';
+import 'package:porter_clone_user/core/services/profile_api_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
+import 'package:porter_clone_user/core/storage/profile_local_storage.dart';
 import 'package:porter_clone_user/features/dashboard/view/dashboard_page.dart';
+import 'package:porter_clone_user/features/profile_completion/view/profile_completion_page.dart';
+import 'package:porter_clone_user/features/trip_details/view/trip_details_page.dart';
 
 class VerificationPage extends StatefulWidget {
   const VerificationPage({
     required this.phoneNumber,
     required this.verificationId,
+    this.redirectTripId,
     super.key,
   });
 
   final String phoneNumber;
   final String verificationId;
+  final String? redirectTripId;
 
   @override
   State<VerificationPage> createState() => _VerificationPageState();
@@ -33,6 +39,7 @@ class _VerificationPageState extends State<VerificationPage> {
     (_) => FocusNode(),
   );
   final AuthApiService _authApiService = const AuthApiService();
+  final ProfileApiService _profileApiService = const ProfileApiService();
   late String _verificationId;
   bool _isVerifying = false;
   bool _isResending = false;
@@ -80,9 +87,77 @@ class _VerificationPageState extends State<VerificationPage> {
   }
 
   void _openDashboard() {
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const DashboardPage()),
+      (route) => false, // Remove all previous routes (clears SignInPage from stack)
     );
+  }
+
+  Future<void> _navigateAfterVerification() async {
+    try {
+      final accessToken = await AuthLocalStorage.getAccessToken();
+      if (accessToken == null || accessToken.trim().isEmpty) {
+        _handlePostLoginNavigation();
+        return;
+      }
+
+      // Fetch profile to check if it's complete
+      final profile = await _profileApiService.viewProfile(
+        accessToken: accessToken,
+      );
+      await ProfileLocalStorage.saveProfile(profile);
+
+      if (!mounted) return;
+
+      // Check if there's a deep link redirect
+      if (widget.redirectTripId != null) {
+        // Navigate to trip details page
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(
+            builder: (_) => TripDetailsPage(
+              tripId: widget.redirectTripId!,
+              isFromDeepLink: true,
+            ),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+
+      // Check if profile is complete
+      if (profile.fullName == null || profile.fullName!.trim().isEmpty) {
+        // Navigate to profile completion
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(
+            builder: (_) => const ProfileCompletionPage(),
+          ),
+          (route) => false,
+        );
+      } else {
+        // Navigate to dashboard
+        _openDashboard();
+      }
+    } catch (e) {
+      // Graceful degradation: proceed to dashboard even if profile fetch fails
+      if (!mounted) return;
+      _handlePostLoginNavigation();
+    }
+  }
+
+  void _handlePostLoginNavigation() {
+    if (widget.redirectTripId != null) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => TripDetailsPage(
+            tripId: widget.redirectTripId!,
+            isFromDeepLink: true,
+          ),
+        ),
+        (route) => false,
+      );
+    } else {
+      _openDashboard();
+    }
   }
 
   String _enteredOtp() {
@@ -138,7 +213,7 @@ class _VerificationPageState extends State<VerificationPage> {
       if (!mounted) {
         return;
       }
-      _openDashboard();
+      await _navigateAfterVerification();
     } on AuthApiException catch (error) {
       _showSnackBar(error.message);
     } on TimeoutException {

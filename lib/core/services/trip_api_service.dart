@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../services/auth_api_service.dart';
+import '../storage/auth_local_storage.dart';
+
 class TripApiException implements Exception {
   TripApiException(this.message);
 
@@ -55,6 +58,39 @@ class TripApiService {
     String? accessToken,
     List<String>? stopsPending,
   }) async {
+    final result = await _doPostTrip(
+      payload: payload,
+      accessToken: accessToken,
+      stopsPending: stopsPending,
+    );
+
+    // null means 401 – refresh and retry once
+    if (result == null) {
+      debugPrint('POST $_postTripUri: 401 – attempting token refresh...');
+      final refreshed = await _tryRefreshAndSave();
+      if (refreshed == null) {
+        throw TripApiException('Session expired. Please log in again.');
+      }
+      final retry = await _doPostTrip(
+        payload: payload,
+        accessToken: refreshed,
+        stopsPending: stopsPending,
+      );
+      if (retry == null) {
+        throw TripApiException('Session expired. Please log in again.');
+      }
+      return retry;
+    }
+
+    return result;
+  }
+
+  /// Returns the decoded response body on success, [null] specifically on 401.
+  Future<Map<String, dynamic>?> _doPostTrip({
+    required Map<String, String> payload,
+    String? accessToken,
+    List<String>? stopsPending,
+  }) async {
     final headers = <String, String>{..._headers};
     final trimmedToken = accessToken?.trim() ?? '';
     if (trimmedToken.isNotEmpty) {
@@ -67,16 +103,34 @@ class TripApiService {
         .post(_postTripUri, headers: headers, body: payload)
         .timeout(_timeout);
 
-    debugPrint(
-      'POST $_postTripUri status: ${response.statusCode}',
-    );
+    debugPrint('POST $_postTripUri status: ${response.statusCode}');
     debugPrint('POST $_postTripUri response: ${response.body}');
+
+    if (response.statusCode == 401) {
+      return null; // Signal caller to refresh
+    }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw TripApiException(_buildRequestError(response));
     }
 
     return _tryDecodePayload(response.body);
+  }
+
+  /// Reads the saved refresh token, calls the refresh API, saves the new
+  /// access token and returns it. Returns [null] if refresh fails.
+  Future<String?> _tryRefreshAndSave() async {
+    try {
+      final saved = await AuthLocalStorage.getRefreshToken();
+      if (saved == null || saved.trim().isEmpty) return null;
+      final newAccess = await const AuthApiService().refreshToken(saved);
+      await AuthLocalStorage.saveAccessToken(newAccess);
+      debugPrint('Token refreshed successfully (postTrip).');
+      return newAccess;
+    } catch (e) {
+      debugPrint('Token refresh failed (postTrip): $e');
+      return null;
+    }
   }
 
   void _logRequest(
