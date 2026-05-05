@@ -7,14 +7,14 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       fullName: json['full_name'] as String?,
-      mobileNumber: json['mobile_number'] as String?,
+      mobileNumber: json['phone_number'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'full_name': fullName,
-      'mobile_number': mobileNumber,
+      'phone_number': mobileNumber,
     };
   }
 

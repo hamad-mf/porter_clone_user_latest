@@ -123,7 +123,16 @@ class _StatusPageState extends State<StatusPage> {
     }
 
     if (trips.isEmpty) {
-      return _EmptyState(status: status);
+      return RefreshIndicator(
+        onRefresh: _refreshTrips,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height - 200,
+            child: _EmptyState(status: status),
+          ),
+        ),
+      );
     }
 
     return RefreshIndicator(

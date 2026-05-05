@@ -1021,30 +1021,33 @@ class _AcceptedDriverCardState extends State<_AcceptedDriverCard> {
           const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
           const SizedBox(height: 12),
 
-          // Bottom row: distance + truck info + Accept button
+          // Bottom row: distance + vehicle size + Accept button
           Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '22 km away    17ft Truck',
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    if (acceptance.distanceToPickup != null && acceptance.distanceToPickup!.isNotEmpty)
+                      Text(
+                        '${acceptance.distanceToPickup} km away',
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Vehicle ${widget.driver.phoneNumber.substring(widget.driver.phoneNumber.length - 7)}',
-                      style: const TextStyle(
-                        color: Color(0xFF9CA3AF),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                    if (acceptance.distanceToPickup != null && acceptance.distanceToPickup!.isNotEmpty)
+                      const SizedBox(height: 4),
+                    if (acceptance.vehicleSize != null && acceptance.vehicleSize!.isNotEmpty)
+                      Text(
+                        '${acceptance.vehicleSize} ft Truck',
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

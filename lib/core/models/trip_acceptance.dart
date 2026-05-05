@@ -7,6 +7,7 @@ class TripAcceptance {
     required this.dropLocation,
     required this.acceptedAt,
     this.vehicleSize,
+    this.distanceToPickup,
   });
 
   final String acceptanceId;
@@ -16,6 +17,7 @@ class TripAcceptance {
   final String dropLocation;
   final DateTime acceptedAt;
   final String? vehicleSize;
+  final String? distanceToPickup;
 
   factory TripAcceptance.fromJson(Map<String, dynamic> json) {
     return TripAcceptance(
@@ -26,6 +28,7 @@ class TripAcceptance {
       dropLocation: json['drop_location'] as String,
       acceptedAt: DateTime.parse(json['accepted_at'] as String),
       vehicleSize: json['vehicle_size'] as String?,
+      distanceToPickup: json['distance_to_pickup'] as String?,
     );
   }
 }

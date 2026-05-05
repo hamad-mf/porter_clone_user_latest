@@ -205,7 +205,7 @@ class _AddTripPageState extends State<AddTripPage> {
       return 'Select a pickup date.';
     }
     if ((_tone ?? '').trim().isEmpty) {
-      return 'Select a tone.';
+      return 'Select a vehicle size.';
     }
     return null;
   }
@@ -301,7 +301,7 @@ class _AddTripPageState extends State<AddTripPage> {
       'start_time': _formatPayloadTime(_startTime),
       'pickup_date': _formatPayloadDate(_pickupDate),
       'body_type': (_bodyType ?? '').trim(),
-      'tone': (_tone ?? '').trim(),
+      'vehicle_size': (_tone ?? '').trim(),
       'amount': _amountController.text.trim(),
       'name': _ownerNameController.text.trim(),
       'contact_number': _contactNumberController.text.trim(),
@@ -777,7 +777,7 @@ class _TripDetailsTab extends StatelessWidget {
           children: [
             Expanded(
               child: _LabeledField(
-                label: 'Size (Length)',
+                label: 'Load Size',
                 child: _CustomDropdown(
                   hint: 'Select size',
                   options: sizeOptions,
@@ -845,9 +845,9 @@ class _TripDetailsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledField(
-                label: 'Tone',
+                label: 'Vehicle Size',
                 child: _CustomDropdown(
-                  hint: 'Select your tone',
+                  hint: 'Select vehicle size',
                   options: toneOptions,
                   value: toneValue,
                   onChanged: onToneChanged,

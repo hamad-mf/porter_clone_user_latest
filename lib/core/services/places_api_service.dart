@@ -153,9 +153,14 @@ class PlacesApiService {
 
     final formatted = result['formatted_address']?.toString();
     final name = result['name']?.toString();
-    final label = (formatted != null && formatted.trim().isNotEmpty)
+    var label = (formatted != null && formatted.trim().isNotEmpty)
         ? formatted.trim()
         : (name ?? '').trim();
+
+    // Remove leading building numbers from the address
+    if (label.isNotEmpty) {
+      label = _removeLeadingBuildingNumber(label);
+    }
 
     return PlaceDetails(
       location: LatLng(lat, lng),
@@ -229,7 +234,25 @@ class PlacesApiService {
       bestAddress = (address != null && address.trim().isNotEmpty) ? address.trim() : null;
     }
     
+    // Remove leading building numbers from the address
+    if (bestAddress != null) {
+      bestAddress = _removeLeadingBuildingNumber(bestAddress);
+    }
+    
     print("✅ Reverse Geocode Success: $bestAddress");
     return bestAddress;
+  }
+
+  /// Removes leading building numbers from addresses
+  /// Examples:
+  /// "B/D37/2205, Kathrikadavu, Kaloor" -> "Kathrikadavu, Kaloor"
+  /// "34/32, Kathrikadavu, Kaloor" -> "Kathrikadavu, Kaloor"
+  /// "ASRA/97, Kathrikadavu" -> "Kathrikadavu"
+  String _removeLeadingBuildingNumber(String address) {
+    // Pattern matches building numbers at the start followed by comma
+    // Matches: "123", "A/123", "B/D37/2205", "ASRA/97", etc.
+    final pattern = RegExp(r'^[A-Z0-9]+(?:/[A-Z0-9]+)*,\s*');
+    final cleaned = address.replaceFirst(pattern, '');
+    return cleaned.isNotEmpty ? cleaned : address;
   }
 }
