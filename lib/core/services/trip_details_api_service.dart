@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/trip.dart';
+import '../services/auth_api_service.dart';
+import '../storage/auth_local_storage.dart';
 
 class TripNotFoundException implements Exception {
   TripNotFoundException(this.message);
@@ -38,6 +40,40 @@ class TripDetailsApiService {
     required String tripId,
     String? accessToken,
   }) async {
+    final result = await _doGetTripById(
+      tripId: tripId,
+      accessToken: accessToken,
+    );
+
+    // If we got a 401, try to refresh the token and retry once
+    if (result == null) {
+      debugPrint('GET trip details: 401 – attempting token refresh...');
+      final refreshed = await _tryRefreshAndSave();
+      if (refreshed == null) {
+        throw TripDetailsApiException(
+          'Session expired. Please log in again.',
+        );
+      }
+      final retry = await _doGetTripById(
+        tripId: tripId,
+        accessToken: refreshed,
+      );
+      if (retry == null) {
+        throw TripDetailsApiException(
+          'Session expired. Please log in again.',
+        );
+      }
+      return retry;
+    }
+
+    return result;
+  }
+
+  /// Returns trip on success, [null] specifically on 401.
+  Future<Trip?> _doGetTripById({
+    required String tripId,
+    String? accessToken,
+  }) async {
     final trimmedTripId = tripId.trim();
     if (trimmedTripId.isEmpty) {
       throw TripDetailsApiException('Trip ID is required.');
@@ -60,6 +96,10 @@ class TripDetailsApiService {
 
       debugPrint('GET $url status: ${response.statusCode}');
       debugPrint('GET $url response: ${response.body}');
+
+      if (response.statusCode == 401) {
+        return null; // Signal caller to refresh
+      }
 
       if (response.statusCode == 404) {
         throw TripNotFoundException('Trip not found.');
@@ -89,6 +129,22 @@ class TripDetailsApiService {
         rethrow;
       }
       throw TripDetailsApiException('An unexpected error occurred: $e');
+    }
+  }
+
+  /// Reads the saved refresh token, calls the refresh API, saves the new
+  /// access token and returns it. Returns [null] if refresh fails.
+  Future<String?> _tryRefreshAndSave() async {
+    try {
+      final saved = await AuthLocalStorage.getRefreshToken();
+      if (saved == null || saved.trim().isEmpty) return null;
+      final newAccess = await const AuthApiService().refreshToken(saved);
+      await AuthLocalStorage.saveAccessToken(newAccess);
+      debugPrint('Token refreshed successfully (trip details).');
+      return newAccess;
+    } catch (e) {
+      debugPrint('Token refresh failed (trip details): $e');
+      return null;
     }
   }
 

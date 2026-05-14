@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/accepted_driver.dart';
+import '../services/auth_api_service.dart';
+import '../storage/auth_local_storage.dart';
 
 class AcceptedDriversApiException implements Exception {
   AcceptedDriversApiException(this.message);
@@ -32,6 +34,33 @@ class AcceptedDriversApiService {
   Future<List<AcceptedDriver>> getAcceptedDrivers({
     required String? accessToken,
   }) async {
+    final result = await _doGetAcceptedDrivers(accessToken: accessToken);
+
+    // If we got a 401, try to refresh the token and retry once
+    if (result == null) {
+      debugPrint('GET $_getAcceptedDriversUri: 401 – attempting token refresh...');
+      final refreshed = await _tryRefreshAndSave();
+      if (refreshed == null) {
+        throw AcceptedDriversApiException(
+          'Authentication failed. Please log in again.',
+        );
+      }
+      final retry = await _doGetAcceptedDrivers(accessToken: refreshed);
+      if (retry == null) {
+        throw AcceptedDriversApiException(
+          'Authentication failed. Please log in again.',
+        );
+      }
+      return retry;
+    }
+
+    return result;
+  }
+
+  /// Returns parsed accepted drivers on success, [null] specifically on 401.
+  Future<List<AcceptedDriver>?> _doGetAcceptedDrivers({
+    required String? accessToken,
+  }) async {
     final headers = <String, String>{..._headers};
     final trimmedToken = accessToken?.trim() ?? '';
     if (trimmedToken.isNotEmpty) {
@@ -52,9 +81,7 @@ class AcceptedDriversApiService {
 
       // Handle specific HTTP status codes
       if (response.statusCode == 401) {
-        throw AcceptedDriversApiException(
-          'Authentication failed. Please log in again.',
-        );
+        return null; // Signal caller to refresh
       }
 
       if (response.statusCode == 500) {
@@ -85,6 +112,22 @@ class AcceptedDriversApiService {
       throw AcceptedDriversApiException(
         'An unexpected error occurred: $e',
       );
+    }
+  }
+
+  /// Reads the saved refresh token, calls the refresh API, saves the new
+  /// access token and returns it. Returns [null] if refresh fails.
+  Future<String?> _tryRefreshAndSave() async {
+    try {
+      final saved = await AuthLocalStorage.getRefreshToken();
+      if (saved == null || saved.trim().isEmpty) return null;
+      final newAccess = await const AuthApiService().refreshToken(saved);
+      await AuthLocalStorage.saveAccessToken(newAccess);
+      debugPrint('Token refreshed successfully (accepted drivers).');
+      return newAccess;
+    } catch (e) {
+      debugPrint('Token refresh failed (accepted drivers): $e');
+      return null;
     }
   }
 

@@ -912,6 +912,7 @@ class _AcceptedDriverCardState extends State<_AcceptedDriverCard> {
       await _acceptApiService.acceptDriver(
         tripId: acceptance.tripId,
         acceptanceId: acceptance.acceptanceId,
+        driverId: widget.driver.driverId,
         accessToken: accessToken,
       );
 

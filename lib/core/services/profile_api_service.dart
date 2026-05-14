@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/user_profile.dart';
+import '../services/auth_api_service.dart';
+import '../storage/auth_local_storage.dart';
 
 class ProfileApiException implements Exception {
   ProfileApiException(this.message);
@@ -28,6 +31,31 @@ class ProfileApiService {
   /// Fetches user profile data from the backend
   /// Throws ProfileApiException on failure
   Future<UserProfile> viewProfile({required String accessToken}) async {
+    final result = await _doViewProfile(accessToken: accessToken);
+
+    // If we got a 401, try to refresh the token and retry once
+    if (result == null) {
+      debugPrint('GET $_viewProfileUri: 401 – attempting token refresh...');
+      final refreshed = await _tryRefreshAndSave();
+      if (refreshed == null) {
+        throw ProfileApiException(
+          'Session expired. Please log in again.',
+        );
+      }
+      final retry = await _doViewProfile(accessToken: refreshed);
+      if (retry == null) {
+        throw ProfileApiException(
+          'Session expired. Please log in again.',
+        );
+      }
+      return retry;
+    }
+
+    return result;
+  }
+
+  /// Returns user profile on success, [null] specifically on 401.
+  Future<UserProfile?> _doViewProfile({required String accessToken}) async {
     final trimmedToken = accessToken.trim();
     if (trimmedToken.isEmpty) {
       throw ProfileApiException('Authentication required. Please log in again.');
@@ -46,9 +74,7 @@ class ProfileApiService {
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (response.statusCode == 401) {
-          throw ProfileApiException(
-            'Session expired. Please log in again.',
-          );
+          return null; // Signal caller to refresh
         }
         throw ProfileApiException(
           _extractMessage(
@@ -78,6 +104,40 @@ class ProfileApiService {
     required String accessToken,
     required String fullName,
   }) async {
+    final result = await _doUpdateProfile(
+      accessToken: accessToken,
+      fullName: fullName,
+    );
+
+    // If we got a 401, try to refresh the token and retry once
+    if (result == null) {
+      debugPrint('POST $_updateProfileUri: 401 – attempting token refresh...');
+      final refreshed = await _tryRefreshAndSave();
+      if (refreshed == null) {
+        throw ProfileApiException(
+          'Session expired. Please log in again.',
+        );
+      }
+      final retry = await _doUpdateProfile(
+        accessToken: refreshed,
+        fullName: fullName,
+      );
+      if (retry == null) {
+        throw ProfileApiException(
+          'Session expired. Please log in again.',
+        );
+      }
+      return retry;
+    }
+
+    return result;
+  }
+
+  /// Returns updated profile on success, [null] specifically on 401.
+  Future<UserProfile?> _doUpdateProfile({
+    required String accessToken,
+    required String fullName,
+  }) async {
     final trimmedToken = accessToken.trim();
     final trimmedName = fullName.trim();
     
@@ -102,9 +162,7 @@ class ProfileApiService {
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (response.statusCode == 401) {
-          throw ProfileApiException(
-            'Session expired. Please log in again.',
-          );
+          return null; // Signal caller to refresh
         }
         throw ProfileApiException(
           _extractMessage(
@@ -132,6 +190,22 @@ class ProfileApiService {
       throw ProfileApiException(
         'Unable to update profile. Please try again later.',
       );
+    }
+  }
+
+  /// Reads the saved refresh token, calls the refresh API, saves the new
+  /// access token and returns it. Returns [null] if refresh fails.
+  Future<String?> _tryRefreshAndSave() async {
+    try {
+      final saved = await AuthLocalStorage.getRefreshToken();
+      if (saved == null || saved.trim().isEmpty) return null;
+      final newAccess = await const AuthApiService().refreshToken(saved);
+      await AuthLocalStorage.saveAccessToken(newAccess);
+      debugPrint('Token refreshed successfully (profile).');
+      return newAccess;
+    } catch (e) {
+      debugPrint('Token refresh failed (profile): $e');
+      return null;
     }
   }
 

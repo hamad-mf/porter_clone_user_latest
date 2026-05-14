@@ -13,11 +13,7 @@ class PickedLocation {
 }
 
 class MapPickerPage extends StatefulWidget {
-  const MapPickerPage({
-    super.key,
-    required this.title,
-    this.initialPosition,
-  });
+  const MapPickerPage({super.key, required this.title, this.initialPosition});
 
   final String title;
   final LatLng? initialPosition;
@@ -29,10 +25,8 @@ class MapPickerPage extends StatefulWidget {
   }) {
     return Navigator.of(context).push<PickedLocation>(
       MaterialPageRoute(
-        builder: (_) => MapPickerPage(
-          title: title,
-          initialPosition: initialPosition,
-        ),
+        builder: (_) =>
+            MapPickerPage(title: title, initialPosition: initialPosition),
       ),
     );
   }
@@ -143,9 +137,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
     setState(() => _isFetchingDetails = true);
     PlaceDetails? details;
     try {
-      details = await _placesApiService.fetchPlaceDetails(
-        suggestion.placeId,
-      );
+      details = await _placesApiService.fetchPlaceDetails(suggestion.placeId);
     } catch (_) {
       details = null;
     }
@@ -192,7 +184,8 @@ class _MapPickerPageState extends State<MapPickerPage> {
       if (mounted) {
         _showLocationDialog(
           title: 'Location Disabled',
-          content: 'Location services are turned off. Please enable them to use your current location.',
+          content:
+              'Location services are turned off. Please enable them to use your current location.',
           onSettings: () => Geolocator.openLocationSettings(),
         );
       }
@@ -208,14 +201,16 @@ class _MapPickerPageState extends State<MapPickerPage> {
       if (mounted) {
         _showLocationDialog(
           title: 'Permission Required',
-          content: 'Location permission is permanently denied. Please enable it in app settings.',
+          content:
+              'Location permission is permanently denied. Please enable it in app settings.',
           onSettings: () => Geolocator.openAppSettings(),
         );
       }
       return false;
     }
 
-    final granted = permission == LocationPermission.always ||
+    final granted =
+        permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
     if (mounted) {
       setState(() => _hasLocationPermission = granted);
@@ -244,14 +239,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
       _resolvedAddress = null;
     });
     _reverseGeocode(latLng);
-    await _controller?.animateCamera(
-      CameraUpdate.newLatLngZoom(latLng, 15),
-    );
+    await _controller?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   static const Color _appColor = Color(0xFF111827);
@@ -264,7 +259,10 @@ class _MapPickerPageState extends State<MapPickerPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(color: _appColor, fontWeight: FontWeight.w700)),
+        title: Text(
+          title,
+          style: const TextStyle(color: _appColor, fontWeight: FontWeight.w700),
+        ),
         content: Text(content),
         actions: [
           TextButton(
@@ -281,7 +279,9 @@ class _MapPickerPageState extends State<MapPickerPage> {
               backgroundColor: _appColor,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Open Settings'),
           ),
@@ -303,15 +303,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
 
     final label = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
-        : (_resolvedAddress?.isNotEmpty == true ? _resolvedAddress! : _labelFor(_selected));
+        : (_resolvedAddress?.isNotEmpty == true
+              ? _resolvedAddress!
+              : _labelFor(_selected));
 
     if (!mounted) return;
-    Navigator.of(context).pop(
-      PickedLocation(
-        position: _selected,
-        label: label,
-      ),
-    );
+    Navigator.of(
+      context,
+    ).pop(PickedLocation(position: _selected, label: label));
   }
 
   @override
@@ -326,15 +325,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
       body: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _selected,
-              zoom: 12,
-            ),
+            initialCameraPosition: CameraPosition(target: _selected, zoom: 12),
             onCameraIdle: () async {
               final center = await _controller?.getVisibleRegion();
               if (center == null || !mounted) return;
-              final lat = (center.northeast.latitude + center.southwest.latitude) / 2;
-              final lng = (center.northeast.longitude + center.southwest.longitude) / 2;
+              final lat =
+                  (center.northeast.latitude + center.southwest.latitude) / 2;
+              final lng =
+                  (center.northeast.longitude + center.southwest.longitude) / 2;
               final newPos = LatLng(lat, lng);
               _suppressSearch = true;
               _searchController.clear();
@@ -384,20 +382,22 @@ class _MapPickerPageState extends State<MapPickerPage> {
                               child: SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : (_searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _suppressSearch = true;
-                                    _searchController.clear();
-                                    _suppressSearch = false;
-                                    setState(() => _suggestions = []);
-                                  },
-                                )
-                              : null),
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _suppressSearch = true;
+                                      _searchController.clear();
+                                      _suppressSearch = false;
+                                      setState(() => _suggestions = []);
+                                    },
+                                  )
+                                : null),
                     ),
                   ),
                 ),
@@ -421,8 +421,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
                       padding: EdgeInsets.zero,
                       physics: const ClampingScrollPhysics(),
                       itemCount: _suggestions.length,
-                      separatorBuilder: (_, __) =>                     
-                      const Divider(height: 1),
+                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final suggestion = _suggestions[index];
                         return ListTile(
@@ -444,7 +443,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
           ),
           Positioned(
             right: 16,
-            bottom: 90,
+            top: 88,
             child: FloatingActionButton(
               heroTag: 'currentLocation',
               mini: true,
