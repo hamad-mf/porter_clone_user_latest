@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:porter_clone_user/core/models/accepted_driver.dart';
 import 'package:porter_clone_user/core/services/accept_driver_api_service.dart';
 import 'package:porter_clone_user/core/services/accepted_drivers_api_service.dart';
+import 'package:porter_clone_user/core/services/home_api_service.dart';
+import 'package:porter_clone_user/core/services/profile_api_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
 import 'package:porter_clone_user/features/new_trip/view/add_trip_page.dart';
 import 'package:porter_clone_user/features/profile/view/profile_page.dart';
@@ -19,15 +21,12 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _tabs = [
-    _DashboardHomeTab(),
-    _AddTripScreen(),
-    _StatusScreen(),
-    _ProfileScreen(),
-  ];
-
   void _onNavTap(int index) {
     setState(() => _selectedIndex = index);
+  }
+
+  void _goHome() {
+    setState(() => _selectedIndex = 0);
   }
 
   @override
@@ -35,7 +34,15 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       body: SafeArea(
-        child: IndexedStack(index: _selectedIndex, children: _tabs),
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            const _DashboardHomeTab(),
+            _AddTripScreen(onTripPosted: _goHome),
+            const _StatusScreen(),
+            const _ProfileScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -102,13 +109,61 @@ class _DashboardHomeTab extends StatefulWidget {
 class _DashboardHomeTabState extends State<_DashboardHomeTab> {
   bool _isLoading = true;
   String? _errorMessage;
+  String _displayName = 'User';
+  String? _bannerImageUrl;
   List<AcceptedDriver> _drivers = [];
   final AcceptedDriversApiService _apiService = AcceptedDriversApiService();
+  final ProfileApiService _profileApiService = const ProfileApiService();
+  final HomeApiService _homeApiService = const HomeApiService();
 
   @override
   void initState() {
     super.initState();
     _fetchAcceptedDrivers();
+    _fetchProfile();
+    _fetchBanner();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final accessToken = await AuthLocalStorage.getAccessToken();
+      if (accessToken == null || accessToken.isEmpty) {
+        return;
+      }
+
+      final profile = await _profileApiService.viewProfile(
+        accessToken: accessToken,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final fullName = profile.fullName.trim();
+      final phoneNumber = profile.phoneNumber.trim();
+      setState(() {
+        _displayName = fullName.isNotEmpty
+            ? fullName
+            : (phoneNumber.isNotEmpty ? phoneNumber : 'User');
+      });
+    } catch (error) {
+      debugPrint('Profile API error on dashboard: $error');
+    }
+  }
+
+  Future<void> _fetchBanner() async {
+    try {
+      final banners = await _homeApiService.getBanners();
+      if (!mounted || banners.isEmpty) {
+        return;
+      }
+
+      setState(() {
+        _bannerImageUrl = banners.first.imageUrl;
+      });
+    } catch (error) {
+      debugPrint('Banner API error: $error');
+    }
   }
 
   Future<void> _fetchAcceptedDrivers() async {
@@ -148,6 +203,11 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 
   Future<void> _refreshDrivers() async {
     try {
+      await Future.wait([
+        _fetchProfile(),
+        _fetchBanner(),
+      ]);
+
       // Retrieve access token from AuthLocalStorage
       final accessToken = await AuthLocalStorage.getAccessToken();
 
@@ -193,7 +253,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Expanded(child: _WelcomeHeader()),
+              Expanded(child: _WelcomeHeader(displayName: _displayName)),
               // Notification icon with red badge
               Stack(
                 clipBehavior: Clip.none,
@@ -246,7 +306,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           const SizedBox(height: 20),
 
           // Create Trip card with truck image background
-          _CreateTripCard(),
+          _CreateTripCard(imageUrl: _bannerImageUrl),
 
           const SizedBox(height: 20),
 
@@ -362,75 +422,55 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 }
 
 class _WelcomeHeader extends StatelessWidget {
-  const _WelcomeHeader();
-  @override
-Widget build(BuildContext context) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'Welcome Back',
-        style: TextStyle(
-          color: Color(0xFF888888),
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-      const SizedBox(height: 2),
+  const _WelcomeHeader({required this.displayName});
 
-      InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ProfilePage(),
-            ),
-          );
-        },
-        child: const Text(
-          'Davidson Edgar',
+  final String displayName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Welcome Back',
           style: TextStyle(
-            color: Color(0xFF111827),
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            height: 1.1,
+            color: Color(0xFF888888),
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
           ),
         ),
-      ),
-    ],
-  );
-}
+        const SizedBox(height: 2),
 
-  // @override
-  // Widget build(BuildContext context) {
-  //   return const Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       Text(
-  //         'Welcome Back',
-  //         style: TextStyle(
-  //           color: Color(0xFF888888),
-  //           fontSize: 13,
-  //           fontWeight: FontWeight.w400,
-  //         ),
-  //       ),
-  //       SizedBox(height: 2),
-  //       Text(
-  //         'Davidson Edgar',
-  //         style: TextStyle(
-  //           color: Color(0xFF111827),
-  //           fontSize: 22,
-  //           fontWeight: FontWeight.w700,
-  //           height: 1.1,
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
+        InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProfilePage(),
+              ),
+            );
+          },
+          child: Text(
+            displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF111827),
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _CreateTripCard extends StatelessWidget {
-  const _CreateTripCard({super.key});
+  const _CreateTripCard({super.key, this.imageUrl});
+
+  final String? imageUrl;
 
   void _openAddTrip(BuildContext context) {
     Navigator.of(
@@ -443,6 +483,7 @@ class _CreateTripCard extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     // Card height proportional to width
     final cardHeight = screenWidth * 0.48;
+    final bannerUrl = imageUrl;
 
     return GestureDetector(
       onTap: () => _openAddTrip(context),
@@ -454,23 +495,24 @@ class _CreateTripCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Truck background image
-              // Place your image at: assets/images/truck_banner.jpg
-              // and register it in pubspec.yaml under flutter > assets
-              Image.asset(
-                'assets/images/truck_banner.jpg',
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: const Color(0xFF2D3748),
-                  child: const Center(
-                    child: Icon(
-                      Icons.local_shipping,
-                      size: 60,
-                      color: Colors.white38,
-                    ),
-                  ),
+              if (bannerUrl != null && bannerUrl.isNotEmpty)
+                Image.network(
+                  bannerUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    }
+                    return const _BannerFallback();
+                  },
+                  errorBuilder: (_, __, ___) => const _BannerFallback(),
+                )
+              else
+                Image.asset(
+                  'assets/images/truck_banner.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const _BannerFallback(),
                 ),
-              ),
 
               // Dark gradient overlay (top only for header bar)
               Positioned(
@@ -531,6 +573,24 @@ class _CreateTripCard extends StatelessWidget {
   }
 }
 
+class _BannerFallback extends StatelessWidget {
+  const _BannerFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF2D3748),
+      child: const Center(
+        child: Icon(
+          Icons.local_shipping,
+          size: 60,
+          color: Colors.white38,
+        ),
+      ),
+    );
+  }
+}
+
 class _MyTripScreen extends StatelessWidget {
   const _MyTripScreen();
 
@@ -541,11 +601,13 @@ class _MyTripScreen extends StatelessWidget {
 }
 
 class _AddTripScreen extends StatelessWidget {
-  const _AddTripScreen();
+  const _AddTripScreen({required this.onTripPosted});
+
+  final VoidCallback onTripPosted;
 
   @override
   Widget build(BuildContext context) {
-    return const AddTripPage();
+    return AddTripPage(onTripPosted: onTripPosted);
   }
 }
 

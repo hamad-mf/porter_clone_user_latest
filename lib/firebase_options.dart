@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCzdkVVYocSPo4tu1Vm951tdCHmgMnto2o',
-    appId: '1:18825890802:android:ae108ae6b4e2727322396b',
+    appId: '1:18825890802:android:333c37310b53591422396b',
     messagingSenderId: '18825890802',
     projectId: 'lorry-app-user',
     storageBucket: 'lorry-app-user.firebasestorage.app',

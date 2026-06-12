@@ -1,4 +1,4 @@
-package com.example.porter_clone_user
+package com.app.lorryappuser
 
 import io.flutter.embedding.android.FlutterActivity
 

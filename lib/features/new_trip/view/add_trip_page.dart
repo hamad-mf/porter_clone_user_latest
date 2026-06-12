@@ -31,7 +31,9 @@ class _TripChoice {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 class AddTripPage extends StatefulWidget {
-  const AddTripPage({super.key});
+  const AddTripPage({super.key, this.onTripPosted});
+
+  final VoidCallback? onTripPosted;
 
   @override
   State<AddTripPage> createState() => _AddTripPageState();
@@ -251,7 +253,7 @@ class _AddTripPageState extends State<AddTripPage> {
       'load_size': (_loadSize ?? '').trim(),
       'load_type': (_loadType ?? '').trim(),
       'start_time': _formatPayloadTime(_startTime),
-      'end_time': _formatPayloadTime(_endTime),
+      'pickup_date': _formatPayloadTime(_endTime),
       'body_type': (_bodyType ?? '').trim(),
       'vehicle_size': (_vehicleSize ?? '').trim(),
       'amount': _amountController.text.trim(),
@@ -388,7 +390,15 @@ class _AddTripPageState extends State<AddTripPage> {
         return;
       }
       if (shouldNavigate == true) {
-        Navigator.of(context).pop();
+        final onTripPosted = widget.onTripPosted;
+        if (onTripPosted != null) {
+          onTripPosted();
+        } else {
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+          }
+        }
       }
     } on TripApiException catch (error) {
       _showMessage(error.message);
@@ -1312,27 +1322,32 @@ class _PrimaryButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: isLoading
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    color: Colors.white,
+          ? FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
+                  const SizedBox(width: 8),
+                  Text(
+                    text,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.1,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             )
           : Text(
               text,

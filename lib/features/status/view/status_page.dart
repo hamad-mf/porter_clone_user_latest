@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:porter_clone_user/core/models/trip.dart';
 import 'package:porter_clone_user/core/services/trips_api_service.dart';
 import 'package:porter_clone_user/core/storage/auth_local_storage.dart';
+import 'package:porter_clone_user/features/status/view/trip_details_page.dart';
 
 class StatusPage extends StatefulWidget {
   const StatusPage({super.key});
@@ -134,9 +135,20 @@ class _StatusPageState extends State<StatusPage> {
         itemBuilder: (context, index) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _TripCard(trip: trips[index]),
+            child: _TripCard(
+              trip: trips[index],
+              onTap: () => _openTripDetails(trips[index]),
+            ),
           );
         },
+      ),
+    );
+  }
+
+  void _openTripDetails(Trip trip) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TripDetailsPage(trip: trip),
       ),
     );
   }
@@ -211,9 +223,10 @@ class _StatusPageState extends State<StatusPage> {
 }
 
 class _TripCard extends StatelessWidget {
-  const _TripCard({required this.trip});
+  const _TripCard({required this.trip, required this.onTap});
 
   final Trip trip;
+  final VoidCallback onTap;
 
   String _extractCityName(String fullAddress) {
     return fullAddress.split(',').first.trim();
@@ -261,158 +274,167 @@ class _TripCard extends StatelessWidget {
     final dropCity = _extractCityName(trip.dropLocation);
     final formattedTime = _formatPickupTime(trip.pickupTime);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Truck icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.local_shipping,
-              color: Color(0xFF6B7280),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Trip details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Route and status badge
-                Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Truck icon
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.local_shipping,
+                  color: Color(0xFF6B7280),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Trip details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              pickupCity,
-                              style: const TextStyle(
-                                color: Color(0xFF111827),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                    // Route and status badge
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  pickupCity,
+                                  style: const TextStyle(
+                                    color: Color(0xFF111827),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.arrow_forward,
+                                color: Color(0xFF6B7280),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  dropCity,
+                                  style: const TextStyle(
+                                    color: Color(0xFF111827),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getStatusBadgeColor().withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            trip.tripStatus,
+                            style: TextStyle(
+                              color: _getStatusBadgeColor(),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.arrow_forward,
-                            color: Color(0xFF6B7280),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              dropCity,
-                              style: const TextStyle(
-                                color: Color(0xFF111827),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Vehicle size and time
+                    Text(
+                      trip.vehicleSize,
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                    const SizedBox(height: 4),
+                    Text(
+                      formattedTime,
+                      style: const TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
-                      decoration: BoxDecoration(
-                        color: _getStatusBadgeColor().withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+                    ),
+                    const SizedBox(height: 8),
+                    // Location details
+                    Text(
+                      'Pickup: ${trip.pickupLocation}',
+                      style: const TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
                       ),
-                      child: Text(
-                        trip.tripStatus,
-                        style: TextStyle(
-                          color: _getStatusBadgeColor(),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Drop: ${trip.dropLocation}',
+                      style: const TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // Vehicle size and time
-                Text(
-                  trip.vehicleSize,
-                  style: const TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  formattedTime,
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Location details
-                Text(
-                  'Pickup: ${trip.pickupLocation}',
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Drop: ${trip.dropLocation}',
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              // Chevron or checkmark
+              Icon(
+                trip.tripStatus.toLowerCase() == 'completed'
+                    ? Icons.check_circle
+                    : Icons.chevron_right,
+                color: trip.tripStatus.toLowerCase() == 'completed'
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFD1D5DB),
+                size: 24,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          // Chevron or checkmark
-          Icon(
-            trip.tripStatus.toLowerCase() == 'completed'
-                ? Icons.check_circle
-                : Icons.chevron_right,
-            color: trip.tripStatus.toLowerCase() == 'completed'
-                ? const Color(0xFF10B981)
-                : const Color(0xFFD1D5DB),
-            size: 24,
-          ),
-        ],
+        ),
       ),
     );
   }

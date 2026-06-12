@@ -62,8 +62,13 @@ class _MapPickerPageState extends State<MapPickerPage> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _checkLocationPermission();
+    
+    // Initialize with proper location
     if (widget.initialPosition != null) {
       _reverseGeocode(widget.initialPosition!);
+    } else {
+      // If no initial position, get current location or use fallback
+      _initializeLocation();
     }
   }
 
@@ -81,30 +86,70 @@ class _MapPickerPageState extends State<MapPickerPage> {
   //   final lng = position.longitude.toStringAsFixed(5);
   //   return 'Lat $lat, Lng $lng';
   // }
-String _labelFor(LatLng position) {
-  if (_resolvedAddress != null &&
-      _resolvedAddress!.trim().isNotEmpty &&
-      _resolvedAddress != 'Unknown location') {
-    return _resolvedAddress!;
+  String _labelFor(LatLng position) {
+    if (_resolvedAddress != null && _resolvedAddress!.trim().isNotEmpty) {
+      return _resolvedAddress!;
+    }
+    return 'Loading location...';
   }
-  return 'Fetching location...';
-}
   Future<void> _reverseGeocode(LatLng position) async {
-  try {
-    final details = await _placesApiService.reverseGeocode(position);
+    debugPrint('🗺️ MAP_PICKER: Starting reverse geocode for position: ${position.latitude}, ${position.longitude}');
+    try {
+      final details = await _placesApiService.reverseGeocode(position);
 
-    if (!mounted) return;
+      debugPrint('🗺️ MAP_PICKER: Reverse geocode response: $details');
 
-    setState(() {
-      _resolvedAddress = (details != null && details.trim().isNotEmpty)
-          ? details
-          : 'Unknown location';
-    });
-  } catch (_) {
-    if (!mounted) return;
-    setState(() => _resolvedAddress = 'Unknown location');
+      if (!mounted) {
+        debugPrint('🗺️ MAP_PICKER: Widget not mounted, skipping state update');
+        return;
+      }
+
+      setState(() {
+        _resolvedAddress = (details != null && details.trim().isNotEmpty)
+            ? details
+            : 'Unknown location';
+      });
+
+      debugPrint('🗺️ MAP_PICKER: Resolved address set to: $_resolvedAddress');
+    } catch (e, stackTrace) {
+      debugPrint('❌ MAP_PICKER: Reverse geocode error: $e');
+      debugPrint('❌ MAP_PICKER: Stack trace: $stackTrace');
+      if (!mounted) return;
+      setState(() => _resolvedAddress = 'Unknown location');
+    }
   }
-}
+
+  Future<void> _initializeLocation() async {
+    debugPrint('🗺️ MAP_PICKER: Initializing location...');
+    // Try to get current location, otherwise use fallback and reverse geocode it
+    try {
+      debugPrint('🗺️ MAP_PICKER: Checking location permissions...');
+      final hasPermission = await _ensureLocationPermission();
+      debugPrint('🗺️ MAP_PICKER: Location permission granted: $hasPermission');
+      
+      if (hasPermission) {
+        debugPrint('🗺️ MAP_PICKER: Getting current position...');
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        final latLng = LatLng(position.latitude, position.longitude);
+        debugPrint('🗺️ MAP_PICKER: Current position: ${latLng.latitude}, ${latLng.longitude}');
+        
+        if (mounted) {
+          setState(() => _selected = latLng);
+        }
+        await _reverseGeocode(latLng);
+        return;
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ MAP_PICKER: Error getting current location: $e');
+      debugPrint('❌ MAP_PICKER: Stack trace: $stackTrace');
+    }
+    
+    // Fallback: reverse geocode the default position
+    debugPrint('🗺️ MAP_PICKER: Using fallback position: ${_fallbackPosition.latitude}, ${_fallbackPosition.longitude}');
+    await _reverseGeocode(_fallbackPosition);
+  }
   void _onSearchChanged() {
     if (_suppressSearch) {
       return;
@@ -604,15 +649,37 @@ String _labelFor(LatLng position) {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                _resolvedAddress ?? 'Unknown location',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xFF222222),
-                                  height: 1.4,
-                                ),
-                              ),
+                              child: _resolvedAddress == null
+                                  ? const Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Loading location...',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w400,
+                                            color: Color(0xFF666666),
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      _resolvedAddress!,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400,
+                                        color: Color(0xFF222222),
+                                        height: 1.4,
+                                      ),
+                                    ),
                             ),
                           ],
                         ),

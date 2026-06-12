@@ -10,6 +10,8 @@ import 'package:porter_clone_user/firebase_options.dart';
 /// NOTIFICATION SERVICE
 /// ------------------------------------------------------
 class NotificationService {
+  static const String userNotificationChannelId = 'default_channel';
+
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
@@ -34,9 +36,9 @@ class NotificationService {
 
     await android?.createNotificationChannel(
       const AndroidNotificationChannel(
-        'trip_accepted_channel',
-        'Trip Accepted Notifications',
-        description: 'Notifications when a driver accepts your trip',
+        userNotificationChannelId,
+        'Trip Updates',
+        description: 'Notifications about driver requests and trip updates',
         importance: Importance.max,
         sound: RawResourceAndroidNotificationSound('accepted'),
         playSound: true,
@@ -49,7 +51,7 @@ class NotificationService {
   Future<void> showNotification({
     required String title,
     required String body,
-    String channelId = 'trip_accepted_channel',
+    String channelId = userNotificationChannelId,
   }) async {
     await _plugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
