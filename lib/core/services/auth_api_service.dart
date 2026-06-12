@@ -41,6 +41,7 @@ class VerifyOtpResult {
 class AuthApiService {
   const AuthApiService();
 
+  static const String _dummyVerificationId = '000000';
   static final Uri _sendOtpUri = Uri.parse(
     'https://lorry.workwista.com/api/users/sendotp/',
   );
@@ -88,17 +89,22 @@ class AuthApiService {
       );
     }
 
-    // Extract data object (same pattern as verifyOtp)
     final data = payload['data'];
     final dataMap = data is Map<String, dynamic> ? data : <String, dynamic>{};
-    
-    final verificationIdValue = dataMap['verificationId'];
-    final verificationId = verificationIdValue?.toString() ?? '';
-    if (verificationId.isEmpty) {
-      throw AuthApiException('Invalid response: verificationId is missing.');
-    }
 
-    final mobileNumber = dataMap['mobileNumber']?.toString();
+    final verificationId =
+        _firstNonEmpty(<Object?>[
+          dataMap['verificationId'],
+          dataMap['verification_id'],
+          payload['verificationId'],
+          payload['verification_id'],
+        ]) ??
+        _dummyVerificationId;
+    final mobileNumber = _firstNonEmpty(<Object?>[
+      dataMap['mobileNumber'],
+      dataMap['phone_number'],
+      payload['phone_number'],
+    ]);
     return SendOtpResult(
       message: _extractMessage(payload, fallback: 'OTP sent successfully.'),
       phoneNumber: (mobileNumber == null || mobileNumber.trim().isEmpty)
@@ -130,21 +136,14 @@ class AuthApiService {
       'otp': trimmedOtp,
       'verificationId': trimmedVerificationId,
     };
-    
+
     // Add FCM token if provided
     if (fcmToken != null && fcmToken.trim().isNotEmpty) {
       body['fcm_token'] = fcmToken.trim();
-      print('✓ FCM token added to verify OTP request');
-    } else {
-      print('⚠ No FCM token provided for verify OTP request');
     }
 
     final response = await http
-        .post(
-          _verifyOtpUri,
-          headers: _headers,
-          body: jsonEncode(body),
-        )
+        .post(_verifyOtpUri, headers: _headers, body: jsonEncode(body))
         .timeout(_timeout);
 
     final payload = _tryDecodePayload(response.body);
@@ -170,13 +169,30 @@ class AuthApiService {
 
     final data = payload['data'];
     final dataMap = data is Map<String, dynamic> ? data : <String, dynamic>{};
-    final accessToken = dataMap['access_token']?.toString() ?? '';
-    final refreshToken = dataMap['refresh_token']?.toString() ?? '';
+    final accessToken =
+        _firstNonEmpty(<Object?>[
+          dataMap['access_token'],
+          dataMap['access'],
+          payload['access_token'],
+          payload['access'],
+        ]) ??
+        '';
+    final refreshToken =
+        _firstNonEmpty(<Object?>[
+          dataMap['refresh_token'],
+          dataMap['refresh'],
+          payload['refresh_token'],
+          payload['refresh'],
+        ]) ??
+        '';
     if (accessToken.isEmpty || refreshToken.isEmpty) {
       throw AuthApiException('Invalid response: tokens are missing.');
     }
 
-    final responsePhone = payload['phone_number']?.toString();
+    final responsePhone = _firstNonEmpty(<Object?>[
+      dataMap['phone_number'],
+      payload['phone_number'],
+    ]);
     return VerifyOtpResult(
       message: _extractMessage(payload, fallback: 'OTP verified successfully.'),
       phoneNumber: (responsePhone == null || responsePhone.trim().isEmpty)
@@ -200,6 +216,16 @@ class AuthApiService {
     } on FormatException {
       return <String, dynamic>{};
     }
+  }
+
+  String? _firstNonEmpty(Iterable<Object?> values) {
+    for (final value in values) {
+      final text = value?.toString().trim();
+      if (text != null && text.isNotEmpty) {
+        return text;
+      }
+    }
+    return null;
   }
 
   String _extractMessage(

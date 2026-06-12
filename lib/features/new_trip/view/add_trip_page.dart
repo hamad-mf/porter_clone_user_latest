@@ -48,15 +48,16 @@ class _AddTripPageState extends State<AddTripPage> {
   List<_TripChoice> _loadSizeChoices = const [];
   List<_TripChoice> _bodyTypeChoices = const [];
   List<_TripChoice> _loadTypeChoices = const [];
-  List<_TripChoice> _toneChoices = const [];
+  List<_TripChoice> _vehicleSizeChoices = const [];
 
   String? _bodyType;
   String? _loadType;
   String? _loadSize;
-  String? _tone;
+  String? _vehicleSize;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
+  final TextEditingController _amountController = TextEditingController();
   final TextEditingController _ownerNameController = TextEditingController();
   final TextEditingController _contactNumberController = TextEditingController();
   final TextEditingController _secondaryContactNumberController =
@@ -99,7 +100,7 @@ class _AddTripPageState extends State<AddTripPage> {
         _loadSizeChoices = _parseChoices(response['load_size']);
         _bodyTypeChoices = _parseChoices(response['body_type']);
         _loadTypeChoices = _parseChoices(response['load_type']);
-        _toneChoices = _parseChoices(response['tone']);
+        _vehicleSizeChoices = _parseChoices(response['vehicle_size']);
       });
 
       debugPrint(
@@ -107,7 +108,7 @@ class _AddTripPageState extends State<AddTripPage> {
         'load_size=${_loadSizeChoices.length}, '
         'body_type=${_bodyTypeChoices.length}, '
         'load_type=${_loadTypeChoices.length}, '
-        'tone=${_toneChoices.length}',
+        'vehicle_size=${_vehicleSizeChoices.length}',
       );
     } catch (error) {
       debugPrint('Trip choices API error: $error');
@@ -170,10 +171,10 @@ class _AddTripPageState extends State<AddTripPage> {
       return 'Select a pickup time.';
     }
     if (_endTime == null) {
-      return 'Select an ending time.';
+      return 'Select a pickup date.';
     }
-    if ((_tone ?? '').trim().isEmpty) {
-      return 'Select a tone.';
+    if ((_vehicleSize ?? '').trim().isEmpty) {
+      return 'Select a vehicle size.';
     }
     return null;
   }
@@ -191,6 +192,7 @@ class _AddTripPageState extends State<AddTripPage> {
     for (final controller in _stopControllers) {
       controller.dispose();
     }
+    _amountController.dispose();
     _ownerNameController.dispose();
     _contactNumberController.dispose();
     _secondaryContactNumberController.dispose();
@@ -251,7 +253,8 @@ class _AddTripPageState extends State<AddTripPage> {
       'start_time': _formatPayloadTime(_startTime),
       'end_time': _formatPayloadTime(_endTime),
       'body_type': (_bodyType ?? '').trim(),
-      'tone': (_tone ?? '').trim(),
+      'vehicle_size': (_vehicleSize ?? '').trim(),
+      'amount': _amountController.text.trim(),
       'name': _ownerNameController.text.trim(),
       'contact_number': _contactNumberController.text.trim(),
       'secondary_contact_number':
@@ -515,9 +518,9 @@ class _AddTripPageState extends State<AddTripPage> {
                       loadType: _loadType,
                       onLoadTypeChanged: (value) =>
                           setState(() => _loadType = value),
-                      toneValue: _tone,
-                      onToneChanged: (value) =>
-                          setState(() => _tone = value),
+                      vehicleSizeValue: _vehicleSize,
+                      onVehicleSizeChanged: (value) =>
+                          setState(() => _vehicleSize = value),
                       startTime: _startTime,
                       onStartTimeChanged: (value) =>
                           setState(() => _startTime = value),
@@ -528,13 +531,14 @@ class _AddTripPageState extends State<AddTripPage> {
                       loadTypeOptions: _loadTypeChoices,
                       sizeOptions: _loadSizeChoices,
                       bodyTypeOptions: _bodyTypeChoices,
-                      toneOptions: _toneChoices,
+                      vehicleSizeOptions: _vehicleSizeChoices,
                           
                     ),
                     _OwnerDetailsTab(
                       onBack: _back,
                       isSubmitting: _isSubmitting,
                       onSubmit: _submit,
+                      amountController: _amountController,
                       nameController: _ownerNameController,
                       contactNumberController: _contactNumberController,
                       secondaryContactNumberController:
@@ -605,8 +609,8 @@ class _TripDetailsTab extends StatelessWidget {
     required this.onBodyTypeChanged,
     required this.loadType,
     required this.onLoadTypeChanged,
-    required this.toneValue,
-    required this.onToneChanged,
+    required this.vehicleSizeValue,
+    required this.onVehicleSizeChanged,
     required this.startTime,
     required this.onStartTimeChanged,
     required this.endTime,
@@ -614,7 +618,7 @@ class _TripDetailsTab extends StatelessWidget {
     required this.loadTypeOptions,
     required this.sizeOptions,
     required this.bodyTypeOptions,
-    required this.toneOptions,
+    required this.vehicleSizeOptions,
   });
   final VoidCallback onNext;
   final TextEditingController pickupController;
@@ -630,8 +634,8 @@ class _TripDetailsTab extends StatelessWidget {
   final ValueChanged<String> onBodyTypeChanged;
   final String? loadType;
   final ValueChanged<String> onLoadTypeChanged;
-  final String? toneValue;
-  final ValueChanged<String> onToneChanged;
+  final String? vehicleSizeValue;
+  final ValueChanged<String> onVehicleSizeChanged;
   final TimeOfDay? startTime;
   final ValueChanged<TimeOfDay> onStartTimeChanged;
   final TimeOfDay? endTime;
@@ -639,7 +643,7 @@ class _TripDetailsTab extends StatelessWidget {
   final List<_TripChoice> loadTypeOptions;
   final List<_TripChoice> sizeOptions;
   final List<_TripChoice> bodyTypeOptions;
-  final List<_TripChoice> toneOptions;
+  final List<_TripChoice> vehicleSizeOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -688,9 +692,9 @@ class _TripDetailsTab extends StatelessWidget {
           children: [
             Expanded(
               child: _LabeledField(
-                label: 'Size (Length)',
+                label: 'Load Size',
                 child: _CustomDropdown(
-                  hint: 'Select size',
+                  hint: '7-8',
                   options: sizeOptions,
                   value: sizeValue,
                   onChanged: onSizeChanged,
@@ -728,8 +732,9 @@ class _TripDetailsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledField(
-                label: 'Ending time',
+                label: 'Pickup date',
                 child: _TimeField(
+                  hint: 'Select date',
                   value: endTime,
                   onChanged: onEndTimeChanged,
                 ),
@@ -756,12 +761,12 @@ class _TripDetailsTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledField(
-                label: 'Tone',
+                label: 'Vehicle Size',
                 child: _CustomDropdown(
-                  hint: 'Select your tone',
-                  options: toneOptions,
-                  value: toneValue,
-                  onChanged: onToneChanged,
+                  hint: 'Select vehicle size',
+                  options: vehicleSizeOptions,
+                  value: vehicleSizeValue,
+                  onChanged: onVehicleSizeChanged,
                 ),
               ),
             ),
@@ -787,6 +792,7 @@ class _OwnerDetailsTab extends StatelessWidget {
     required this.onBack,
     required this.onSubmit,
     required this.isSubmitting,
+    required this.amountController,
     required this.nameController,
     required this.contactNumberController,
     required this.secondaryContactNumberController,
@@ -794,6 +800,7 @@ class _OwnerDetailsTab extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onSubmit;
   final bool isSubmitting;
+  final TextEditingController amountController;
   final TextEditingController nameController;
   final TextEditingController contactNumberController;
   final TextEditingController secondaryContactNumberController;
@@ -805,6 +812,17 @@ class _OwnerDetailsTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _LabeledField(
+          label: 'Amount',
+          child: _CustomTextField(
+            hint: 'Enter amount',
+            controller: amountController,
+            keyboardType: TextInputType.number,
+          ),
+        ),
+
+        SizedBox(height: sh * 0.022),
+
         _LabeledField(
           label: 'Name',
           child: _CustomTextField(
@@ -852,7 +870,7 @@ class _OwnerDetailsTab extends StatelessWidget {
         SizedBox(height: sh * 0.022),
 
         _LabeledField(
-          label: 'Alternative Number',
+          label: 'Receiver Number',
           child: _CustomTextField(
             hint: '+91',
             controller: secondaryContactNumberController,

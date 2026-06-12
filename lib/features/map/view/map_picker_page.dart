@@ -10,7 +10,7 @@ class PickedLocation {
 
   final LatLng position;
   final String label;
-}''
+}
 
 class MapPickerPage extends StatefulWidget {
   const MapPickerPage({
@@ -347,14 +347,10 @@ String _labelFor(LatLng position) {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-      ),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
+          // Google Map
           GoogleMap(
             initialCameraPosition: CameraPosition(
               target: _selected,
@@ -370,141 +366,293 @@ String _labelFor(LatLng position) {
               _searchController.clear();
               _suppressSearch = false;
               setState(() {
-  _selected = newPos;
-  _resolvedAddress = null;
-});
+                _selected = newPos;
+                _resolvedAddress = null;
+              });
 
-await _reverseGeocode(newPos);
+              await _reverseGeocode(newPos);
             },
             onMapCreated: (controller) => _controller = controller,
             myLocationEnabled: _hasLocationPermission,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
           ),
+          
           // Fixed center pin
           const Center(
             child: Padding(
               padding: EdgeInsets.only(bottom: 36),
-              child: Icon(Icons.place, color: Colors.redAccent, size: 40),
+              child: Icon(Icons.place, color: Color(0xFFDE4B65), size: 48),
             ),
           ),
+          
+          // Top Bar with Back button and Title
           Positioned(
-            left: 16,
-            right: 16,
-            top: 16,
-            child: Column(
-              children: [
-                Material(
-                  elevation: 2,
-                  borderRadius: BorderRadius.circular(12),
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _searchFocus,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: 'Search location',
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
+            left: 0,
+            right: 0,
+            top: 0,
+            child: SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                color: Colors.white,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
                       ),
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _isSearching
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : (_searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _suppressSearch = true;
-                                    _searchController.clear();
-                                    _suppressSearch = false;
-                                    setState(() => _suggestions = []);
-                                  },
-                                )
-                              : null),
                     ),
-                  ),
+                  ],
                 ),
-                if (_suggestions.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x22000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      physics: const ClampingScrollPhysics(),
-                      itemCount: _suggestions.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final suggestion = _suggestions[index];
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.place_outlined),
-                          title: Text(
-                            suggestion.description,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          onTap: _isFetchingDetails
-                              ? null
-                              : () => _selectSuggestion(suggestion),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
-          Positioned(
-            right: 16,
-            bottom: 90,
-            child: FloatingActionButton(
-              heroTag: 'currentLocation',
-              mini: true,
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
-              onPressed: _goToCurrentLocation,
-              child: const Icon(Icons.my_location),
-            ),
-          ),
+          
+          // Search Bar
           Positioned(
             left: 16,
             right: 16,
-            bottom: 18,
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _confirm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D1117),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            top: 72,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        textInputAction: TextInputAction.search,
+                        style: const TextStyle(fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: 'Search location',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFAAAAAA),
+                            fontSize: 15,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Color(0xFF666666),
+                            size: 24,
+                          ),
+                          suffixIcon: _isSearching
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                )
+                              : (_searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 22),
+                                      onPressed: () {
+                                        _suppressSearch = true;
+                                        _searchController.clear();
+                                        _suppressSearch = false;
+                                        setState(() => _suggestions = []);
+                                      },
+                                    )
+                                  : null),
+                        ),
+                      ),
+                    ),
                   ),
+                  if (_suggestions.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: _suggestions.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, thickness: 0.5),
+                        itemBuilder: (context, index) {
+                          final suggestion = _suggestions[index];
+                          return ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            leading: const Icon(
+                              Icons.place_outlined,
+                              color: Color(0xFF666666),
+                              size: 22,
+                            ),
+                            title: Text(
+                              suggestion.description,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF222222),
+                              ),
+                            ),
+                            onTap: _isFetchingDetails
+                                ? null
+                                : () => _selectSuggestion(suggestion),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Current Location Button
+          Positioned(
+            right: 16,
+            bottom: 200,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x33000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.my_location,
+                  color: Color(0xFF111827),
+                  size: 24,
                 ),
-                child: const Text(
-                  'Use this location',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                onPressed: _goToCurrentLocation,
+              ),
+            ),
+          ),
+          
+          // Bottom Address Card and Button
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 16,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Address Display
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                Icons.place,
+                                color: Color(0xFF111827),
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _resolvedAddress ?? 'Unknown location',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w400,
+                                  color: Color(0xFF222222),
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Use this location button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: _isFetchingDetails ? null : _confirm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D1117),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            disabledBackgroundColor: const Color(0xFF666666),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isFetchingDetails
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Use this location',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
