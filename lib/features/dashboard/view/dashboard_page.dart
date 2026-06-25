@@ -203,10 +203,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 
   Future<void> _refreshDrivers() async {
     try {
-      await Future.wait([
-        _fetchProfile(),
-        _fetchBanner(),
-      ]);
+      await Future.wait([_fetchProfile(), _fetchBanner()]);
 
       // Retrieve access token from AuthLocalStorage
       final accessToken = await AuthLocalStorage.getAccessToken();
@@ -258,48 +255,48 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEEEEE),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.notifications,
-                      color: Color(0xFF111827),
-                      size: 22,
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
+                  // Container(
+                  //   width: 40,
+                  //   height: 40,
+                  //   decoration: BoxDecoration(
+                  //     color: const Color(0xFFEEEEEE),
+                  //     borderRadius: BorderRadius.circular(10),
+                  //   ),
+                  //   child: const Icon(
+                  //     Icons.notifications,
+                  //     color: Color(0xFF111827),
+                  //     size: 22,
+                  //   ),
+                  // ),
+                  // Positioned(
+                  //   top: 6,
+                  //   right: 6,
+                  //   child: Container(
+                  //     width: 8,
+                  //     height: 8,
+                  //     decoration: const BoxDecoration(
+                  //       color: Colors.red,
+                  //       shape: BoxShape.circle,
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
               const SizedBox(width: 8),
               // GPS icon in rounded box
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEEEEE),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.gps_fixed,
-                  color: Color(0xFF111827),
-                  size: 20,
-                ),
-              ),
+              // Container(
+              //   width: 40,
+              //   height: 40,
+              //   decoration: BoxDecoration(
+              //     color: const Color(0xFFEEEEEE),
+              //     borderRadius: BorderRadius.circular(10),
+              //   ),
+              //   child: const Icon(
+              //     Icons.gps_fixed,
+              //     color: Color(0xFF111827),
+              //     size: 20,
+              //   ),
+              // ),
             ],
           ),
 
@@ -445,9 +442,7 @@ class _WelcomeHeader extends StatelessWidget {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const ProfilePage(),
-              ),
+              MaterialPageRoute(builder: (_) => const ProfilePage()),
             );
           },
           child: Text(
@@ -581,11 +576,7 @@ class _BannerFallback extends StatelessWidget {
     return Container(
       color: const Color(0xFF2D3748),
       child: const Center(
-        child: Icon(
-          Icons.local_shipping,
-          size: 60,
-          color: Colors.white38,
-        ),
+        child: Icon(Icons.local_shipping, size: 60, color: Colors.white38),
       ),
     );
   }

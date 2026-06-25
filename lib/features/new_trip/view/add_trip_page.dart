@@ -58,10 +58,12 @@ class _AddTripPageState extends State<AddTripPage> {
   String? _vehicleSize;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
+  DateTime? _pickupDate;
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _ownerNameController = TextEditingController();
-  final TextEditingController _contactNumberController = TextEditingController();
+  final TextEditingController _contactNumberController =
+      TextEditingController();
   final TextEditingController _secondaryContactNumberController =
       TextEditingController();
 
@@ -154,6 +156,9 @@ class _AddTripPageState extends State<AddTripPage> {
   }
 
   String? _validateTripDetails() {
+    debugPrint(
+      'pickupDate=$_pickupDate endTime=$_endTime startTime=$_startTime',
+    );
     if (_pickupController.text.trim().isEmpty) {
       return 'Select a starting location.';
     }
@@ -169,12 +174,15 @@ class _AddTripPageState extends State<AddTripPage> {
     if ((_loadType ?? '').trim().isEmpty) {
       return 'Select a loading item.';
     }
+    if (_pickupDate == null) {
+      return 'Select a pickup date.';
+    }
     if (_startTime == null) {
       return 'Select a pickup time.';
     }
-    if (_endTime == null) {
-      return 'Select a pickup date.';
-    }
+    // if (_endTime == null) {
+    //   return 'Select a pickup date.';
+    // }
     if ((_vehicleSize ?? '').trim().isEmpty) {
       return 'Select a vehicle size.';
     }
@@ -187,6 +195,7 @@ class _AddTripPageState extends State<AddTripPage> {
     }
     return null;
   }
+
   @override
   void dispose() {
     _pickupController.dispose();
@@ -232,10 +241,10 @@ class _AddTripPageState extends State<AddTripPage> {
       .toList();
 
   List<String> _buildStops() => <String>[
-        _pickupController.text.trim(),
-        ..._pendingStops(),
-        _dropController.text.trim(),
-      ].where((value) => value.isNotEmpty).toList();
+    _pickupController.text.trim(),
+    ..._pendingStops(),
+    _dropController.text.trim(),
+  ].where((value) => value.isNotEmpty).toList();
 
   String _formatPayloadTime(TimeOfDay? time) {
     if (time == null) {
@@ -246,6 +255,14 @@ class _AddTripPageState extends State<AddTripPage> {
     return '$h:$m';
   }
 
+  String _formatPayloadDate(DateTime? date) {
+    if (date == null) return '';
+    final y = date.year.toString();
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d'; // "YYYY-MM-DD" — adjust format to match your backend
+  }
+
   Map<String, String> _buildTripPayload() {
     final payload = <String, String>{
       'pickup_location': _pickupController.text.trim(),
@@ -253,14 +270,13 @@ class _AddTripPageState extends State<AddTripPage> {
       'load_size': (_loadSize ?? '').trim(),
       'load_type': (_loadType ?? '').trim(),
       'start_time': _formatPayloadTime(_startTime),
-      'pickup_date': _formatPayloadTime(_endTime),
+      'pickup_date': _formatPayloadDate(_pickupDate),
       'body_type': (_bodyType ?? '').trim(),
       'vehicle_size': (_vehicleSize ?? '').trim(),
       'amount': _amountController.text.trim(),
       'name': _ownerNameController.text.trim(),
       'contact_number': _contactNumberController.text.trim(),
-      'secondary_contact_number':
-          _secondaryContactNumberController.text.trim(),
+      'secondary_contact_number': _secondaryContactNumberController.text.trim(),
     };
 
     final stops = _buildStops();
@@ -277,6 +293,7 @@ class _AddTripPageState extends State<AddTripPage> {
     }
 
     final tripError = _validateTripDetails();
+
     if (tripError != null) {
       if (_step != 0) {
         setState(() => _step = 0);
@@ -501,10 +518,13 @@ class _AddTripPageState extends State<AddTripPage> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: hp),
                 physics: const ClampingScrollPhysics(),
-                  child: IndexedStack(
+                child: IndexedStack(
                   index: _step,
                   children: [
                     _TripDetailsTab(
+                      pickupDate: _pickupDate,
+                      onPickupDateChanged: (value) =>
+                          setState(() => _pickupDate = value),
                       onNext: _next,
                       pickupController: _pickupController,
                       dropController: _dropController,
@@ -537,12 +557,11 @@ class _AddTripPageState extends State<AddTripPage> {
                       endTime: _endTime,
                       onEndTimeChanged: (value) =>
                           setState(() => _endTime = value),
-                           // ✅ ADD THESE (IMPORTANT FIX)
+                      // ✅ ADD THESE (IMPORTANT FIX)
                       loadTypeOptions: _loadTypeChoices,
                       sizeOptions: _loadSizeChoices,
                       bodyTypeOptions: _bodyTypeChoices,
                       vehicleSizeOptions: _vehicleSizeChoices,
-                          
                     ),
                     _OwnerDetailsTab(
                       onBack: _back,
@@ -629,6 +648,8 @@ class _TripDetailsTab extends StatelessWidget {
     required this.sizeOptions,
     required this.bodyTypeOptions,
     required this.vehicleSizeOptions,
+    required this.onPickupDateChanged,
+    required this.pickupDate,
   });
   final VoidCallback onNext;
   final TextEditingController pickupController;
@@ -654,6 +675,8 @@ class _TripDetailsTab extends StatelessWidget {
   final List<_TripChoice> sizeOptions;
   final List<_TripChoice> bodyTypeOptions;
   final List<_TripChoice> vehicleSizeOptions;
+  final DateTime? pickupDate;
+  final ValueChanged<DateTime> onPickupDateChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -743,10 +766,10 @@ class _TripDetailsTab extends StatelessWidget {
             Expanded(
               child: _LabeledField(
                 label: 'Pickup date',
-                child: _TimeField(
+                child: _DateField(
                   hint: 'Select date',
-                  value: endTime,
-                  onChanged: onEndTimeChanged,
+                  value: pickupDate,
+                  onChanged: onPickupDateChanged,
                 ),
               ),
             ),
@@ -1299,6 +1322,88 @@ class _TimeField extends StatelessWidget {
   );
 }
 
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.value,
+    required this.onChanged,
+    this.hint = 'Select date',
+  });
+
+  final DateTime? value;
+  final ValueChanged<DateTime> onChanged;
+  final String hint;
+
+  // Formats the display to something clean like "MM/DD/YYYY" (e.g., "10/25/2026")
+  // You can adjust this structure if you prefer "DD/MM/YYYY" or use the intl package.
+  String _formatDisplay(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    final year = date.year;
+    return '$month/$day/$year';
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: value ?? DateTime.now(),
+      firstDate: DateTime(2000), // Adjust the scope based on your requirements
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        return Theme(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: const Color(0xFF0D1117),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: const Color(0xFF222222),
+            ),
+            datePickerTheme: const DatePickerThemeData(
+              backgroundColor:
+                  _pageBg, // Uses your specific background constant
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked == null) {
+      return;
+    }
+    onChanged(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => _pick(context),
+    child: Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: _fieldDecoration(), // Uses your external decoration method
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              value == null ? hint : _formatDisplay(value!),
+              style: TextStyle(
+                color: value == null ? _hintColor : const Color(0xFF222222),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.calendar_today_outlined, // Swapped to calendar icon
+            color: Color(0xFF444444),
+            size: 18,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({
     required this.text,
@@ -1412,4 +1517,3 @@ class _DottedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter _) => false;
 }
-

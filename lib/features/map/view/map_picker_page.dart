@@ -13,11 +13,7 @@ class PickedLocation {
 }
 
 class MapPickerPage extends StatefulWidget {
-  const MapPickerPage({
-    super.key,
-    required this.title,
-    this.initialPosition,
-  });
+  const MapPickerPage({super.key, required this.title, this.initialPosition});
 
   final String title;
   final LatLng? initialPosition;
@@ -29,10 +25,8 @@ class MapPickerPage extends StatefulWidget {
   }) {
     return Navigator.of(context).push<PickedLocation>(
       MaterialPageRoute(
-        builder: (_) => MapPickerPage(
-          title: title,
-          initialPosition: initialPosition,
-        ),
+        builder: (_) =>
+            MapPickerPage(title: title, initialPosition: initialPosition),
       ),
     );
   }
@@ -62,7 +56,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _checkLocationPermission();
-    
+
     // Initialize with proper location
     if (widget.initialPosition != null) {
       _reverseGeocode(widget.initialPosition!);
@@ -92,28 +86,27 @@ class _MapPickerPageState extends State<MapPickerPage> {
     }
     return 'Loading location...';
   }
+
   Future<void> _reverseGeocode(LatLng position) async {
-    debugPrint('🗺️ MAP_PICKER: Starting reverse geocode for position: ${position.latitude}, ${position.longitude}');
     try {
       final details = await _placesApiService.reverseGeocode(position);
 
-      debugPrint('🗺️ MAP_PICKER: Reverse geocode response: $details');
+      if (!mounted) return;
 
-      if (!mounted) {
-        debugPrint('🗺️ MAP_PICKER: Widget not mounted, skipping state update');
-        return;
+      String address = details ?? '';
+
+      // Remove Plus Code
+      final parts = address.split(',');
+
+      if (parts.isNotEmpty &&
+          RegExp(r'^[A-Z0-9]+\+[A-Z0-9]+$').hasMatch(parts.first.trim())) {
+        parts.removeAt(0);
       }
 
       setState(() {
-        _resolvedAddress = (details != null && details.trim().isNotEmpty)
-            ? details
-            : 'Unknown location';
+        _resolvedAddress = parts.join(',').trim();
       });
-
-      debugPrint('🗺️ MAP_PICKER: Resolved address set to: $_resolvedAddress');
-    } catch (e, stackTrace) {
-      debugPrint('❌ MAP_PICKER: Reverse geocode error: $e');
-      debugPrint('❌ MAP_PICKER: Stack trace: $stackTrace');
+    } catch (e) {
       if (!mounted) return;
       setState(() => _resolvedAddress = 'Unknown location');
     }
@@ -126,15 +119,17 @@ class _MapPickerPageState extends State<MapPickerPage> {
       debugPrint('🗺️ MAP_PICKER: Checking location permissions...');
       final hasPermission = await _ensureLocationPermission();
       debugPrint('🗺️ MAP_PICKER: Location permission granted: $hasPermission');
-      
+
       if (hasPermission) {
         debugPrint('🗺️ MAP_PICKER: Getting current position...');
         final position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
         );
         final latLng = LatLng(position.latitude, position.longitude);
-        debugPrint('🗺️ MAP_PICKER: Current position: ${latLng.latitude}, ${latLng.longitude}');
-        
+        debugPrint(
+          '🗺️ MAP_PICKER: Current position: ${latLng.latitude}, ${latLng.longitude}',
+        );
+
         if (mounted) {
           setState(() => _selected = latLng);
         }
@@ -145,11 +140,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
       debugPrint('❌ MAP_PICKER: Error getting current location: $e');
       debugPrint('❌ MAP_PICKER: Stack trace: $stackTrace');
     }
-    
+
     // Fallback: reverse geocode the default position
-    debugPrint('🗺️ MAP_PICKER: Using fallback position: ${_fallbackPosition.latitude}, ${_fallbackPosition.longitude}');
+    debugPrint(
+      '🗺️ MAP_PICKER: Using fallback position: ${_fallbackPosition.latitude}, ${_fallbackPosition.longitude}',
+    );
     await _reverseGeocode(_fallbackPosition);
   }
+
   void _onSearchChanged() {
     if (_suppressSearch) {
       return;
@@ -194,9 +192,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
     setState(() => _isFetchingDetails = true);
     PlaceDetails? details;
     try {
-      details = await _placesApiService.fetchPlaceDetails(
-        suggestion.placeId,
-      );
+      details = await _placesApiService.fetchPlaceDetails(suggestion.placeId);
     } catch (_) {
       details = null;
     }
@@ -240,7 +236,8 @@ class _MapPickerPageState extends State<MapPickerPage> {
       if (mounted) {
         _showLocationDialog(
           title: 'Location Disabled',
-          content: 'Location services are turned off. Please enable them to use your current location.',
+          content:
+              'Location services are turned off. Please enable them to use your current location.',
           onSettings: () => Geolocator.openLocationSettings(),
         );
       }
@@ -256,14 +253,16 @@ class _MapPickerPageState extends State<MapPickerPage> {
       if (mounted) {
         _showLocationDialog(
           title: 'Permission Required',
-          content: 'Location permission is permanently denied. Please enable it in app settings.',
+          content:
+              'Location permission is permanently denied. Please enable it in app settings.',
           onSettings: () => Geolocator.openAppSettings(),
         );
       }
       return false;
     }
 
-    final granted = permission == LocationPermission.always ||
+    final granted =
+        permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
     if (mounted) {
       setState(() => _hasLocationPermission = granted);
@@ -292,14 +291,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
       _resolvedAddress = null;
     });
     _reverseGeocode(latLng);
-    await _controller?.animateCamera(
-      CameraUpdate.newLatLngZoom(latLng, 15),
-    );
+    await _controller?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   static const Color _appColor = Color(0xFF111827);
@@ -312,7 +311,10 @@ class _MapPickerPageState extends State<MapPickerPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title, style: const TextStyle(color: _appColor, fontWeight: FontWeight.w700)),
+        title: Text(
+          title,
+          style: const TextStyle(color: _appColor, fontWeight: FontWeight.w700),
+        ),
         content: Text(content),
         actions: [
           TextButton(
@@ -329,7 +331,9 @@ class _MapPickerPageState extends State<MapPickerPage> {
               backgroundColor: _appColor,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Open Settings'),
           ),
@@ -338,55 +342,54 @@ class _MapPickerPageState extends State<MapPickerPage> {
     );
   }
 
-// Future<void> _confirm() async {
-//   setState(() => _isFetchingDetails = true);
+  // Future<void> _confirm() async {
+  //   setState(() => _isFetchingDetails = true);
 
-//   try {
-//     // ensure latest address is fetched
-//     final address = await _placesApiService.reverseGeocode(_selected);
+  //   try {
+  //     // ensure latest address is fetched
+  //     final address = await _placesApiService.reverseGeocode(_selected);
 
-//     if (!mounted) return;
+  //     if (!mounted) return;
 
-//     final String label = (address != null && address.trim().isNotEmpty)
-//         ? address.trim()
-//         : (_resolvedAddress?.trim().isNotEmpty == true
-//             ? _resolvedAddress!.trim()
-//             : 'Selected location');
+  //     final String label = (address != null && address.trim().isNotEmpty)
+  //         ? address.trim()
+  //         : (_resolvedAddress?.trim().isNotEmpty == true
+  //             ? _resolvedAddress!.trim()
+  //             : 'Selected location');
 
-//     Navigator.of(context).pop(
-//       PickedLocation(
-//         position: _selected,
-//         label: label,
-//       ),
-//     );
-//   } catch (e) {
-//     if (!mounted) return;
+  //     Navigator.of(context).pop(
+  //       PickedLocation(
+  //         position: _selected,
+  //         label: label,
+  //       ),
+  //     );
+  //   } catch (e) {
+  //     if (!mounted) return;
 
-//     Navigator.of(context).pop(
-//       PickedLocation(
-//         position: _selected,
-//         label: _resolvedAddress?.trim().isNotEmpty == true
-//             ? _resolvedAddress!.trim()
-//             : 'Selected location',
-//       ),
-//     );
-//   } finally {
-//     if (mounted) {
-//       setState(() => _isFetchingDetails = false);
-//     }
-//   }
-// }
+  //     Navigator.of(context).pop(
+  //       PickedLocation(
+  //         position: _selected,
+  //         label: _resolvedAddress?.trim().isNotEmpty == true
+  //             ? _resolvedAddress!.trim()
+  //             : 'Selected location',
+  //       ),
+  //     );
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isFetchingDetails = false);
+  //     }
+  //   }
+  // }
 
   void _confirm() {
     final label = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
-        : (_resolvedAddress?.isNotEmpty == true ? _resolvedAddress! : _labelFor(_selected));
-    Navigator.of(context).pop(
-      PickedLocation(
-        position: _selected,
-        label: label,
-      ),
-    );
+        : (_resolvedAddress?.isNotEmpty == true
+              ? _resolvedAddress!
+              : _labelFor(_selected));
+    Navigator.of(
+      context,
+    ).pop(PickedLocation(position: _selected, label: label));
   }
 
   @override
@@ -397,15 +400,14 @@ class _MapPickerPageState extends State<MapPickerPage> {
         children: [
           // Google Map
           GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _selected,
-              zoom: 12,
-            ),
+            initialCameraPosition: CameraPosition(target: _selected, zoom: 12),
             onCameraIdle: () async {
               final center = await _controller?.getVisibleRegion();
               if (center == null || !mounted) return;
-              final lat = (center.northeast.latitude + center.southwest.latitude) / 2;
-              final lng = (center.northeast.longitude + center.southwest.longitude) / 2;
+              final lat =
+                  (center.northeast.latitude + center.southwest.latitude) / 2;
+              final lng =
+                  (center.northeast.longitude + center.southwest.longitude) / 2;
               final newPos = LatLng(lat, lng);
               _suppressSearch = true;
               _searchController.clear();
@@ -422,7 +424,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
           ),
-          
+
           // Fixed center pin
           const Center(
             child: Padding(
@@ -430,7 +432,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
               child: Icon(Icons.place, color: Color(0xFFDE4B65), size: 48),
             ),
           ),
-          
+
           // Top Bar with Back button and Title
           Positioned(
             left: 0,
@@ -443,7 +445,11 @@ class _MapPickerPageState extends State<MapPickerPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.black,
+                        size: 24,
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(width: 12),
@@ -460,7 +466,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
               ),
             ),
           ),
-          
+
           // Search Bar
           Positioned(
             left: 16,
@@ -504,20 +510,22 @@ class _MapPickerPageState extends State<MapPickerPage> {
                                   child: SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                 )
                               : (_searchController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear, size: 22),
-                                      onPressed: () {
-                                        _suppressSearch = true;
-                                        _searchController.clear();
-                                        _suppressSearch = false;
-                                        setState(() => _suggestions = []);
-                                      },
-                                    )
-                                  : null),
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 22),
+                                        onPressed: () {
+                                          _suppressSearch = true;
+                                          _searchController.clear();
+                                          _suppressSearch = false;
+                                          setState(() => _suggestions = []);
+                                        },
+                                      )
+                                    : null),
                         ),
                       ),
                     ),
@@ -575,7 +583,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
               ),
             ),
           ),
-          
+
           // Current Location Button
           Positioned(
             right: 16,
@@ -604,7 +612,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
               ),
             ),
           ),
-          
+
           // Bottom Address Card and Button
           Positioned(
             left: 0,
@@ -684,7 +692,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
                           ],
                         ),
                       ),
-                      
+
                       // Use this location button
                       SizedBox(
                         width: double.infinity,
