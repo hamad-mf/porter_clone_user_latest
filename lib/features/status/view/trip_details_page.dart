@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:porter_clone_user/core/models/trip.dart';
 import 'package:porter_clone_user/core/services/trip_driver_location_api_service.dart';
@@ -98,9 +100,11 @@ class _TripDetailsPageState extends State<TripDetailsPage> {
           style: TextStyle(
             color: Color(0xFF111827),
             fontWeight: FontWeight.w700,
+            fontSize: 16,
           ),
         ),
         actions: [
+          _AlertDriverButton(tripId: widget.trip.id),
           IconButton(
             tooltip: 'Refresh location',
             onPressed: _isLoading ? null : _fetchDriverLocation,
@@ -460,6 +464,155 @@ class _ZoomControls extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AlertDriverButton extends StatefulWidget {
+  const _AlertDriverButton({required this.tripId});
+
+  final String tripId;
+
+  @override
+  State<_AlertDriverButton> createState() => _AlertDriverButtonState();
+}
+
+class _AlertDriverButtonState extends State<_AlertDriverButton> {
+  Timer? _timer;
+  int _secondsRemaining = 0;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCooldown();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadCooldown() async {
+    final prefs = await SharedPreferences.getInstance();
+    final expirationMs = prefs.getInt('alert_driver_cooldown_${widget.tripId}');
+    if (expirationMs != null) {
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final remaining = (expirationMs - nowMs) ~/ 1000;
+      if (remaining > 0) {
+        setState(() {
+          _secondsRemaining = remaining;
+          _isInitialized = true;
+        });
+        _startTimer();
+      } else {
+        setState(() {
+          _secondsRemaining = 0;
+          _isInitialized = true;
+        });
+      }
+    } else {
+      setState(() {
+        _secondsRemaining = 0;
+        _isInitialized = true;
+      });
+    }
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining <= 1) {
+        timer.cancel();
+        setState(() {
+          _secondsRemaining = 0;
+        });
+      } else {
+        setState(() {
+          _secondsRemaining--;
+        });
+      }
+    });
+  }
+
+  Future<void> _onPressed() async {
+    const cooldownDuration = Duration(minutes: 5);
+    final expiration = DateTime.now().add(cooldownDuration);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('alert_driver_cooldown_${widget.tripId}', expiration.millisecondsSinceEpoch);
+
+    setState(() {
+      _secondsRemaining = cooldownDuration.inSeconds;
+    });
+    _startTimer();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Driver alerted successfully!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const SizedBox.shrink();
+    }
+
+    final isCooldownActive = _secondsRemaining > 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextButton(
+        onPressed: isCooldownActive ? null : _onPressed,
+        style: TextButton.styleFrom(
+          backgroundColor: isCooldownActive
+              ? Colors.grey.shade200
+              : const Color(0xFFEF4444).withValues(alpha: 0.1),
+          foregroundColor: isCooldownActive
+              ? Colors.grey.shade500
+              : const Color(0xFFEF4444),
+          disabledForegroundColor: Colors.grey.shade500,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: isCooldownActive
+                  ? Colors.grey.shade300
+                  : const Color(0xFFEF4444).withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isCooldownActive ? Icons.hourglass_empty_rounded : Icons.notifications_active_rounded,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isCooldownActive
+                  ? 'Alerted (${_formatDuration(_secondsRemaining)})'
+                  : 'Alert Driver',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -299,6 +299,33 @@ class _AddTripPageState extends State<AddTripPage> {
     return payload;
   }
 
+  void _resetForm() {
+    setState(() {
+      _step = 0;
+      _pickupController.clear();
+      _dropController.clear();
+      for (final controller in _stopControllers) {
+        controller.dispose();
+      }
+      _stopControllers.clear();
+      _bodyType = null;
+      _loadType = null;
+      _loadSize = null;
+      _vehicleSize = null;
+      _startTime = null;
+      _endTime = null;
+      _pickupDate = null;
+      _pickupLat = null;
+      _pickupLng = null;
+      _dropLat = null;
+      _dropLng = null;
+      _amountController.clear();
+      _ownerNameController.clear();
+      _contactNumberController.clear();
+      _secondaryContactNumberController.clear();
+    });
+  }
+
   Future<void> _submit() async {
     if (_isSubmitting) {
       return;
@@ -419,13 +446,14 @@ class _AddTripPageState extends State<AddTripPage> {
         return;
       }
       if (shouldNavigate == true) {
+        _resetForm();
         final onTripPosted = widget.onTripPosted;
         if (onTripPosted != null) {
           onTripPosted();
         } else {
           final navigator = Navigator.of(context);
           if (navigator.canPop()) {
-            navigator.pop();
+            navigator.pop(true);
           }
         }
       }
@@ -458,62 +486,13 @@ class _AddTripPageState extends State<AddTripPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _titles[_step],
-                          style: const TextStyle(
-                            color: _titleColor,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      // Bell + red dot
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          const Icon(
-                            Icons.notifications,
-                            color: _titleColor,
-                            size: 26,
-                          ),
-                          Positioned(
-                            top: 1,
-                            right: 1,
-                            child: Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(
-                                color: _pinRed,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: _pageBg, width: 1.5),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 14),
-                      // GPS icon in circle
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF888888),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.gps_fixed,
-                          color: _titleColor,
-                          size: 18,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    _titles[_step],
+                    style: const TextStyle(
+                      color: _titleColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   // Animated progress bar

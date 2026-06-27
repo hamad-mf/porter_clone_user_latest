@@ -116,20 +116,33 @@ class _StatusPageState extends State<StatusPage> {
       );
     }
 
+    Widget content;
     if (_errorMessage != null) {
-      return _ErrorState(
-        errorMessage: _errorMessage!,
-        onRetry: _fetchTrips,
+      content = ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: _ErrorState(
+              errorMessage: _errorMessage!,
+              onRetry: _fetchTrips,
+            ),
+          ),
+        ],
       );
-    }
-
-    if (trips.isEmpty) {
-      return _EmptyState(status: status);
-    }
-
-    return RefreshIndicator(
-      onRefresh: _refreshTrips,
-      child: ListView.builder(
+    } else if (trips.isEmpty) {
+      content = ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: _EmptyState(status: status),
+          ),
+        ],
+      );
+    } else {
+      content = ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: trips.length,
         itemBuilder: (context, index) {
@@ -141,7 +154,12 @@ class _StatusPageState extends State<StatusPage> {
             ),
           );
         },
-      ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshTrips,
+      child: content,
     );
   }
 

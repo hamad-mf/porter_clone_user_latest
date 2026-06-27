@@ -20,13 +20,17 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+  int _statusRefreshCounter = 0;
 
   void _onNavTap(int index) {
     setState(() => _selectedIndex = index);
   }
 
   void _goHome() {
-    setState(() => _selectedIndex = 0);
+    setState(() {
+      _selectedIndex = 0;
+      _statusRefreshCounter++;
+    });
   }
 
   @override
@@ -37,9 +41,15 @@ class _DashboardPageState extends State<DashboardPage> {
         child: IndexedStack(
           index: _selectedIndex,
           children: [
-            const _DashboardHomeTab(),
+            _DashboardHomeTab(
+              onTripPosted: () {
+                setState(() {
+                  _statusRefreshCounter++;
+                });
+              },
+            ),
             _AddTripScreen(onTripPosted: _goHome),
-            const _StatusScreen(),
+            _StatusScreen(key: ValueKey(_statusRefreshCounter)),
             const _ProfileScreen(),
           ],
         ),
@@ -100,7 +110,9 @@ class _DashboardPageState extends State<DashboardPage> {
 }
 
 class _DashboardHomeTab extends StatefulWidget {
-  const _DashboardHomeTab();
+  const _DashboardHomeTab({super.key, this.onTripPosted});
+
+  final VoidCallback? onTripPosted;
 
   @override
   State<_DashboardHomeTab> createState() => _DashboardHomeTabState();
@@ -303,7 +315,13 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           const SizedBox(height: 20),
 
           // Create Trip card with truck image background
-          _CreateTripCard(imageUrl: _bannerImageUrl),
+          _CreateTripCard(
+            imageUrl: _bannerImageUrl,
+            onTripPosted: () {
+              widget.onTripPosted?.call();
+              _refreshDrivers();
+            },
+          ),
 
           const SizedBox(height: 20),
 
@@ -463,14 +481,18 @@ class _WelcomeHeader extends StatelessWidget {
 }
 
 class _CreateTripCard extends StatelessWidget {
-  const _CreateTripCard({super.key, this.imageUrl});
+  const _CreateTripCard({super.key, this.imageUrl, this.onTripPosted});
 
   final String? imageUrl;
+  final VoidCallback? onTripPosted;
 
-  void _openAddTrip(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AddTripPage()));
+  void _openAddTrip(BuildContext context) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const AddTripPage()),
+    );
+    if (result == true) {
+      onTripPosted?.call();
+    }
   }
 
   @override
@@ -603,7 +625,7 @@ class _AddTripScreen extends StatelessWidget {
 }
 
 class _StatusScreen extends StatelessWidget {
-  const _StatusScreen();
+  const _StatusScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

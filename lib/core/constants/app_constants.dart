@@ -1,7 +1,7 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'Lorry App';
+  static const String appName = 'LoadOn';
   static const String onboardingBackgroundImage =
       'assets/images/onboarding_bg.png';
   static const String ongoingTripTruckIcon =
