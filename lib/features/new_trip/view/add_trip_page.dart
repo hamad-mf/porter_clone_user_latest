@@ -59,6 +59,10 @@ class _AddTripPageState extends State<AddTripPage> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   DateTime? _pickupDate;
+  double? _pickupLat;
+  double? _pickupLng;
+  double? _dropLat;
+  double? _dropLng;
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _ownerNameController = TextEditingController();
@@ -213,12 +217,14 @@ class _AddTripPageState extends State<AddTripPage> {
   Future<void> _pickLocation({
     required TextEditingController controller,
     required String title,
+    void Function(double lat, double lng)? onCoordinatesPicked,
   }) async {
     final picked = await MapPickerPage.pick(context, title: title);
-    if (picked == null) {
-      return;
-    }
+    if (picked == null) return;
     controller.text = picked.label;
+    if (onCoordinatesPicked != null) {
+      onCoordinatesPicked(picked.position.latitude, picked.position.longitude);
+    }
   }
 
   void _addStop() {
@@ -263,8 +269,9 @@ class _AddTripPageState extends State<AddTripPage> {
     return '$y-$m-$d'; // "YYYY-MM-DD" — adjust format to match your backend
   }
 
-  Map<String, String> _buildTripPayload() {
-    final payload = <String, String>{
+  // AFTER
+  Map<String, dynamic> _buildTripPayload() {
+    final payload = <String, dynamic>{
       'pickup_location': _pickupController.text.trim(),
       'drop_location': _dropController.text.trim(),
       'load_size': (_loadSize ?? '').trim(),
@@ -277,6 +284,11 @@ class _AddTripPageState extends State<AddTripPage> {
       'name': _ownerNameController.text.trim(),
       'contact_number': _contactNumberController.text.trim(),
       'secondary_contact_number': _secondaryContactNumberController.text.trim(),
+      // ── Coordinates ──────────────────────────────────────────────────────
+      if (_pickupLat != null) 'pickup_loc_lat': _pickupLat,
+      if (_pickupLng != null) 'pickup_loc_lng': _pickupLng,
+      if (_dropLat != null) 'drop_loc_lat': _dropLat,
+      if (_dropLng != null) 'drop_loc_lng': _dropLng,
     };
 
     final stops = _buildStops();
@@ -531,10 +543,18 @@ class _AddTripPageState extends State<AddTripPage> {
                       onPickStart: () => _pickLocation(
                         controller: _pickupController,
                         title: 'Select starting location',
+                        onCoordinatesPicked: (lat, lng) {
+                          _pickupLat = lat;
+                          _pickupLng = lng;
+                        },
                       ),
                       onPickDrop: () => _pickLocation(
                         controller: _dropController,
                         title: 'Select destination',
+                        onCoordinatesPicked: (lat, lng) {
+                          _dropLat = lat;
+                          _dropLng = lng;
+                        },
                       ),
                       stopControllers: _stopControllers,
                       onAddStop: _addStop,

@@ -30,12 +30,9 @@ class TripApiService {
       'https://lorry.workwista.com/api/users/trip/get/choices/',
     );
 
-    final response = await http.get(
-      url,
-      headers: const {
-        'Accept': 'application/json',
-      },
-    ).timeout(_timeout);
+    final response = await http
+        .get(url, headers: const {'Accept': 'application/json'})
+        .timeout(_timeout);
 
     if (response.statusCode != 200) {
       throw TripApiException('Failed to load trip choices');
@@ -51,7 +48,7 @@ class TripApiService {
   }
 
   Future<Map<String, dynamic>> postTrip({
-    required Map<String, String> payload,
+    required Map<String, dynamic> payload,
     String? accessToken,
     List<String>? stopsPending,
   }) async {
@@ -61,15 +58,22 @@ class TripApiService {
       headers['Authorization'] = 'Bearer $trimmedToken';
     }
 
+    // Convert Map<String, dynamic> → Map<String, String> for form encoding
+    final encodedPayload = payload.map(
+      (key, value) => MapEntry(key, value?.toString() ?? ''),
+    );
+
     _logRequest(headers, payload, stopsPending);
 
     final response = await http
-        .post(_postTripUri, headers: headers, body: payload)
+        .post(
+          _postTripUri,
+          headers: headers,
+          body: encodedPayload,
+        ) // ← encodedPayload
         .timeout(_timeout);
 
-    debugPrint(
-      'POST $_postTripUri status: ${response.statusCode}',
-    );
+    debugPrint('POST $_postTripUri status: ${response.statusCode}');
     debugPrint('POST $_postTripUri response: ${response.body}');
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -81,7 +85,7 @@ class TripApiService {
 
   void _logRequest(
     Map<String, String> headers,
-    Map<String, String> payload,
+    Map<String, dynamic> payload,
     List<String>? stopsPending,
   ) {
     final safeHeaders = <String, String>{...headers};
