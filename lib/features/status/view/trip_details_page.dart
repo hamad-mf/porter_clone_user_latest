@@ -479,6 +479,8 @@ class _AlertDriverButton extends StatefulWidget {
 }
 
 class _AlertDriverButtonState extends State<_AlertDriverButton> {
+  final TripDriverLocationApiService _apiService =
+      const TripDriverLocationApiService();
   Timer? _timer;
   int _secondsRemaining = 0;
   bool _isInitialized = false;
@@ -538,6 +540,24 @@ class _AlertDriverButtonState extends State<_AlertDriverButton> {
   }
 
   Future<void> _onPressed() async {
+    try {
+      final accessToken = await AuthLocalStorage.getAccessToken();
+      await _apiService.requestDriverLocation(
+        tripId: widget.tripId,
+        accessToken: accessToken,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString()),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
     const cooldownDuration = Duration(minutes: 5);
     final expiration = DateTime.now().add(cooldownDuration);
     final prefs = await SharedPreferences.getInstance();

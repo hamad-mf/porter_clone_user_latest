@@ -55,6 +55,51 @@ class TripDriverLocationApiService {
   static const String _baseUrl = 'https://lorry.workwista.com/api/users';
   static const Duration _timeout = Duration(seconds: 20);
 
+  Future<void> requestDriverLocation({
+    required String tripId,
+    required String? accessToken,
+  }) async {
+    final trimmedTripId = tripId.trim();
+    final trimmedToken = accessToken?.trim() ?? '';
+
+    if (trimmedTripId.isEmpty) {
+      throw TripDriverLocationApiException('Trip id is required.');
+    }
+    if (trimmedToken.isEmpty) {
+      throw TripDriverLocationApiException('Please log in again.');
+    }
+
+    final uri = Uri.parse('$_baseUrl/trip/$trimmedTripId/request-driver-location/');
+
+    try {
+      final response = await client
+          .post(
+            uri,
+            headers: <String, String>{
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $trimmedToken',
+            },
+          )
+          .timeout(_timeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final payload = _tryDecodePayload(response.body);
+        throw TripDriverLocationApiException(
+          _extractMessage(
+            payload,
+            fallback: 'Failed to alert driver. (${response.statusCode})',
+          ),
+        );
+      }
+    } on TimeoutException {
+      throw TripDriverLocationApiException(
+        'Request timed out. Please check your internet connection.',
+      );
+    } on http.ClientException catch (error) {
+      throw TripDriverLocationApiException('Network error: ${error.message}');
+    }
+  }
+
   Future<TripDriverLocation> getDriverLocation({
     required String tripId,
     required String? accessToken,
